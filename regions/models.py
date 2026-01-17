@@ -11,3 +11,6 @@ class adm1(models.Model):
 
     def __str__(self):
         return self.shapename
+
+    class Meta:
+        ordering = ["shapename"]
