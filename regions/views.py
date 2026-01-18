@@ -7,3 +7,11 @@ def index(request):
     context = {}
     context["adm1"] = adm_1
     return render(request, "index.html", context)
+
+
+def adm1region(request, shapeiso):
+    province = adm1.objects.get(shapeiso=shapeiso)
+    context = {}
+    context["province"] = province
+    print(province)
+    return render(request, "provinces.html", context)
