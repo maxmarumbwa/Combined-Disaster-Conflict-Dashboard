@@ -1,5 +1,7 @@
 from django.shortcuts import render
 from regions.models import adm1
+from django.core.serializers import serialize
+import json
 
 
 def index(request):
@@ -15,3 +17,8 @@ def adm1region(request, shapeiso):
     context["province"] = province
     print(province)
     return render(request, "provinces.html", context)
+
+
+def home(request):
+    provinces = adm1.objects.all().order_by("shapename")
+    return render(request, "home.html", {"provinces": provinces})

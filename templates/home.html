@@ -1,0 +1,39 @@
+{% load leaflet_tags %}
+{% load geojson_tags %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>All Provinces Map</title>
+    {% leaflet_js %}
+    {% leaflet_css %}
+    <style>
+        body { margin: 20px; }
+        #map { height: 500px; width: 50%; margin: 20px auto; }
+        .home-link { margin: 20px; }
+    </style>
+</head>
+<body>
+    <div class="home-link">
+        <a href="/home/">← Go to Home</a>
+    </div>
+    
+    <h1>All Provinces Map ({{ provinces.count }} regions)</h1>
+    
+    {% leaflet_map "mainmap" callback="map_init" %}
+
+    <script>
+        function map_init(map, options) {
+            {% for p in provinces %}
+            L.geoJSON({{ p.geom|geojsonfeature|safe }}).addTo(map)
+                .bindPopup('<b>{{ p.shapename }}</b><br><a href="/home/{{ p.shapeiso }}/">View Details →</a>');
+            {% endfor %}
+            
+            // Fit map to show all provinces
+            if (map.getLayers().length > 0) {
+                var group = new L.featureGroup(map.getLayers());
+                map.fitBounds(group.getBounds());
+            }
+        }
+    </script>
+</body>
+</html>
