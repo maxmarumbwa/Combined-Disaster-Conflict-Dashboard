@@ -4,6 +4,6 @@ from regions import views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("home/", views.index),
-    path("home/<str:shapeiso>/", views.adm1region),
+    path("home/", views.index, name="index"),
+    path("home/<str:shapeiso>/", views.adm1region, name="adm1region"),
 ]

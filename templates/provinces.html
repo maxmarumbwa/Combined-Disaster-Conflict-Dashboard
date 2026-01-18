@@ -1,31 +1,169 @@
+<!-- provinces.html -->
 {% load leaflet_tags %}
 {% load geojson_tags %}
+{% load humanize %}
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ province.shapename }}</title>
-
+    <title>{{ province.shapename }} - Climate Risk Profile</title>
+    
     {% leaflet_js %}
     {% leaflet_css %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .risk-high { color: #d32f2f; font-weight: bold; }
+        .risk-medium { color: #f57c00; }
+        .risk-low { color: #388e3c; }
+        .dashboard { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .risk-indicators { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .indicator-card { background: #f5f5f5; padding: 15px; border-radius: 8px; }
+        .map-container { height: 500px; border: 1px solid #ddd; border-radius: 8px; }
+        .back-link { margin-bottom: 20px; }
+    </style>
 </head>
 
 <body>
-    <h1>{{ province.shapename }}</h1>
-
-    <div style="height: 500px;">
-        {% leaflet_map "map" callback="map_init" %}
+    <div class="back-link">
+        <a href="{% url 'index' %}"><i class="fas fa-arrow-left"></i> Back to Regions</a>
+    </div>
+    
+    <h1>{{ province.shapename }} - Climate Risk Profile</h1>
+    
+    <div class="dashboard">
+        <div class="map-section">
+            <h2>Geographic View</h2>
+            <div class="map-container">
+                {% leaflet_map "map" callback="map_init" %}
+            </div>
+        </div>
+        
+        <div class="stats-section">
+            <h2>Quick Statistics</h2>
+            <div class="indicator-card">
+                <h3>Overall Risk Score</h3>
+                <div class="risk-score">
+                    {% if province.risk_score %}
+                        <span class="risk-{{ province.get_risk_level }}">
+                            {{ province.risk_score|floatformat:1 }}/10
+                        </span>
+                    {% else %}
+                        <span>No data</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if province.population %}
+            <div class="indicator-card">
+                <h4><i class="fas fa-users"></i> Population</h4>
+                <p>{{ province.population|intcomma }}</p>
+            </div>
+            {% endif %}
+            
+            <div class="indicator-card">
+                <h4><i class="fas fa-exclamation-triangle"></i> Disaster Events</h4>
+                <p>{{ province.disaster_count|default:"0" }} recorded events</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="risk-breakdown">
+        <h2>Risk Indicators</h2>
+        <div class="risk-indicators">
+            {% if province.flood_risk %}
+            <div class="indicator-card">
+                <h4><i class="fas fa-water"></i> Flood Risk</h4>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ province.flood_risk }}%"></div>
+                </div>
+                <p>{{ province.flood_risk }}%</p>
+            </div>
+            {% endif %}
+            
+            {% if province.drought_risk %}
+            <div class="indicator-card">
+                <h4><i class="fas fa-sun"></i> Drought Risk</h4>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ province.drought_risk }}%"></div>
+                </div>
+                <p>{{ province.drought_risk }}%</p>
+            </div>
+            {% endif %}
+            
+            <!-- Add more risk indicators... -->
+        </div>
+    </div>
+    
+    <div class="historical-data">
+        <h2>Historical Data</h2>
+        {% if province.last_disaster %}
+        <p>Last recorded disaster: {{ province.last_disaster }}</p>
+        {% endif %}
+        
+        {% if province.economic_loss %}
+        <p>Estimated economic loss: ${{ province.economic_loss|intcomma }}</p>
+        {% endif %}
     </div>
 
     <script type="text/javascript">
         function map_init(map, options) {
-            var area = L.geoJson(
-                {{ province.geom|geojsonfeature|safe }}
-            ).addTo(map);
-
-            map.fitBounds(area.getBounds());
+            // Style based on risk score
+            function getColor(riskScore) {
+                return riskScore > 7 ? '#d73027' :
+                       riskScore > 5 ? '#fc8d59' :
+                       riskScore > 3 ? '#fee08b' :
+                                       '#91cf60';
+            }
+            
+            var provinceGeoJSON = {{ province.geom|geojsonfeature|safe }};
+            
+            // Add styling based on risk
+            var geojsonLayer = L.geoJson(provinceGeoJSON, {
+                style: function(feature) {
+                    return {
+                        fillColor: getColor({{ province.risk_score|default:0 }}),
+                        weight: 2,
+                        opacity: 1,
+                        color: 'white',
+                        dashArray: '3',
+                        fillOpacity: 0.7
+                    };
+                },
+                onEachFeature: function (feature, layer) {
+                    layer.bindPopup(`
+                        <h3>{{ province.shapename }}</h3>
+                        <p><strong>Risk Score:</strong> {{ province.risk_score|default:"N/A" }}</p>
+                        <p><strong>Population:</strong> {{ province.population|default:"N/A"|intcomma }}</p>
+                        <p><strong>Area:</strong> {{ province.area_sqkm|default:"N/A"|floatformat:0 }} km²</p>
+                    `);
+                }
+            }).addTo(map);
+            
+            map.fitBounds(geojsonLayer.getBounds());
+            
+            // Add base layers
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add risk legend
+            var legend = L.control({position: 'bottomright'});
+            legend.onAdd = function (map) {
+                var div = L.DomUtil.create('div', 'info legend'),
+                    grades = [0, 3, 5, 7, 10],
+                    labels = [];
+                
+                for (var i = 0; i < grades.length; i++) {
+                    div.innerHTML +=
+                        '<i style="background:' + getColor(grades[i] + 0.1) + '"></i> ' +
+                        grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+                }
+                return div;
+            };
+            legend.addTo(map);
         }
     </script>
 </body>

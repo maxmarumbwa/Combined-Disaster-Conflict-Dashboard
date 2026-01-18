@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.gis",
     "leaflet",
     "djgeojson",
+    "django.contrib.humanize",
 ]
 
 MIDDLEWARE = [
