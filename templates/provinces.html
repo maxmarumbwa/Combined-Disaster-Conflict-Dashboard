@@ -1,14 +1,32 @@
+{% load leaflet_tags %}
+{% load geojson_tags %}
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>{{ province.shapename }}</title>
+
+    {% leaflet_js %}
+    {% leaflet_css %}
 </head>
 
 <body>
     <h1>{{ province.shapename }}</h1>
-</body>
 
+    <div style="height: 500px;">
+        {% leaflet_map "map" callback="map_init" %}
+    </div>
+
+    <script type="text/javascript">
+        function map_init(map, options) {
+            var area = L.geoJson(
+                {{ province.geom|geojsonfeature|safe }}
+            ).addTo(map);
+
+            map.fitBounds(area.getBounds());
+        }
+    </script>
+</body>
 </html>
