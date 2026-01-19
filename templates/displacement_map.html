@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple GeoJSON Map</title>
+
+    <!-- Leaflet -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+
+    <style>
+        #map {
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<script>
+    // Create map
+    const map = L.map("map").setView([0, 25], 4);
+
+    // Add base map
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    // Load GeoJSON
+    fetch("http://127.0.0.1:8000/geojson/")
+        .then(response => response.json())
+        .then(data => {
+
+            // Convert geometry string → object
+            const geojson = {
+                type: "FeatureCollection",
+                features: data.features.map(f => ({
+                    type: "Feature",
+                    geometry: JSON.parse(f.geometry),
+                    properties: f.properties
+                }))
+            };
+
+            // Add to map (default Leaflet markers)
+            const layer = L.geoJSON(geojson).addTo(map);
+
+            // Zoom to data
+            map.fitBounds(layer.getBounds());
+        });
+</script>
+
+</body>
+</html>

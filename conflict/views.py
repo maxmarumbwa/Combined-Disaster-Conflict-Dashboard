@@ -1,21 +1,34 @@
+from django.http import JsonResponse
 from django.shortcuts import render
-from djgeojson.views import GeoJSONLayerView
 from .models import DisplacementEvent
 
 
-# 1️⃣ View to render the HTML map page
 def displacement_map(request):
-    return render(request, "displacements_map.html")
+    return render(request, "displacement_map.html")
 
 
-# 2️⃣ View to serve displacement data as GeoJSON
-class DisplacementGeoJSON(GeoJSONLayerView):
-    model = DisplacementEvent
-    geometry_field = "location"
-    properties = (
-        "external_id",
-        "displacement_type",
-        "displacement_name",
-        "figure",
-        "displacement_date",
-    )
+from django.http import JsonResponse
+from django.contrib.gis.geos import GEOSGeometry
+from .models import DisplacementEvent
+
+
+def displacement_geojson(request):
+    features = []
+
+    for event in DisplacementEvent.objects.all():
+        geom = GEOSGeometry(event.location.geojson)  # convert string → geometry dict
+
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": geom.json,  # this is a dict, not a string
+                "properties": {
+                    "id": event.external_id,
+                    "type": event.displacement_type,
+                    "name": event.displacement_name,
+                    "figure": event.figure,
+                    "date": str(event.displacement_date),
+                },
+            }
+        )
+    return JsonResponse({"type": "FeatureCollection", "features": features})
