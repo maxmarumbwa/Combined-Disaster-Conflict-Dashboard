@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "regions",
+    "conflict",
     "django.contrib.gis",
     "leaflet",
     "djgeojson",

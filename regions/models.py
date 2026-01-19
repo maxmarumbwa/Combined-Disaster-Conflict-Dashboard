@@ -1,4 +1,5 @@
 from django.contrib.gis.db import models
+from django.contrib.gis.db import models
 
 
 class adm1(models.Model):

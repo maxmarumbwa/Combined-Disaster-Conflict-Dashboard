@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    <h1>Hello world</h1>
+    <p><a href="{% url 'home'%}">← Back to Home</a></p>
     {% for adm1 in adm1 %}
     <p><a href="{{ adm1.shapeiso }}">{{ adm1.shapename }}</a></p>
     {% endfor %}
