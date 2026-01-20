@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Displacement CSV</title>
+</head>
+<body>
+    <h2>Upload Displacement Events (CSV)</h2>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Upload CSV</button>
+    </form>
+
+    <p><a href="{% url 'displacement_map' %}">Back to map</a></p>
+</body>
+</html>
