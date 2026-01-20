@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Displacement Event</title>
+</head>
+<body>
+    <h2>Add Displacement Event</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="{% url 'displacement_map' %}">Back to Map</a></p>
+</body>
+</html>

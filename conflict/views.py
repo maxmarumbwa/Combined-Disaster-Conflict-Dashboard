@@ -32,3 +32,19 @@ def displacement_geojson(request):
             }
         )
     return JsonResponse({"type": "FeatureCollection", "features": features})
+
+
+from django.shortcuts import render, redirect
+from .forms import DisplacementEventForm
+
+
+def add_displacement_event(request):
+    if request.method == "POST":
+        form = DisplacementEventForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("displacement_map")  # Redirect to map after saving
+    else:
+        form = DisplacementEventForm()
+
+    return render(request, "add_displacement_event.html", {"form": form})
