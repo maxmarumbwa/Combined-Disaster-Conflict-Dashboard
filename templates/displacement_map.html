@@ -1,57 +1,95 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Simple GeoJSON Map</title>
+    <meta charset="UTF-8">
+    <title>GeoJSON Map</title>
 
-    <!-- Leaflet -->
+    <!-- Leaflet CSS -->
     <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
+
+    <!-- Leaflet JS -->
     <script
         src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
     </script>
 
     <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
         #map {
-            height: 100vh;
+            height: 95vh;
+            width: 100%;
         }
     </style>
 </head>
 
 <body>
 
+<h3 style="padding:10px">Displacement Events Map</h3>
 <div id="map"></div>
 
 <script>
-    // Create map
-    const map = L.map("map").setView([0, 25], 4);
+    // 1️⃣ Initialize map
+    const map = L.map("map").setView([0, 25], 5);
 
-    // Add base map
+    // 2️⃣ Basemap
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap"
+        attribution: "© OpenStreetMap contributors"
     }).addTo(map);
 
-    // Load GeoJSON
+    // 3️⃣ Fetch your endpoint
     fetch("http://127.0.0.1:8000/geojson/")
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
 
-            // Convert geometry string → object
-            const geojson = {
+            console.log("RAW DATA:", data);
+
+            // 4️⃣ Fix invalid geometry (string → object)
+            const fixedGeoJSON = {
                 type: "FeatureCollection",
                 features: data.features.map(f => ({
                     type: "Feature",
-                    geometry: JSON.parse(f.geometry),
+                    geometry: JSON.parse(f.geometry), // 🔥 FIX
                     properties: f.properties
                 }))
             };
 
-            // Add to map (default Leaflet markers)
-            const layer = L.geoJSON(geojson).addTo(map);
+            console.log("FIXED GEOJSON:", fixedGeoJSON);
 
-            // Zoom to data
+            // 5️⃣ Add to map
+            const layer = L.geoJSON(fixedGeoJSON, {
+                pointToLayer: (feature, latlng) => {
+                    const color = feature.properties.type === "Conflict"
+                        ? "red"
+                        : "blue";
+
+                    return L.circleMarker(latlng, {
+                        radius: 7,
+                        fillColor: color,
+                        color: "#000",
+                        weight: 1,
+                        fillOpacity: 0.85
+                    });
+                },
+                onEachFeature: (feature, layer) => {
+                    layer.bindPopup(`
+                        <strong>${feature.properties.type}</strong><br>
+                        Displaced: ${feature.properties.figure}<br>
+                        Date: ${feature.properties.date}
+                    `);
+                }
+            }).addTo(map);
+
+            // 6️⃣ Zoom to points
             map.fitBounds(layer.getBounds());
+
+        })
+        .catch(err => {
+            console.error("GeoJSON load error:", err);
         });
 </script>
 
