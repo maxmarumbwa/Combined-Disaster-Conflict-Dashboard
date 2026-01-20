@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Conflict Event</title>
+</head>
+<body>
+    <h1>Add Conflict Event</h1>
+
+    {% if success %}
+        <p style="color: green;">Conflict event saved successfully!</p>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save</button>
+    </form>
+</body>
+</html>

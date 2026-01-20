@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "regions",
     "conflict",
+    "political_violence_events",
     "django.contrib.gis",
     "leaflet",
     "djgeojson",

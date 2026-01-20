@@ -8,6 +8,7 @@ class adm1(models.Model):
     shapeid = models.CharField(max_length=100, null=True)
     shapegroup = models.CharField(max_length=100, null=True)
     shapetype = models.CharField(max_length=100, null=True)
+    shapename2 = models.CharField(max_length=110, null=True)
     geom = models.GeometryField()
 
     def __str__(self):
