@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Result</title>
+</head>
+<body>
+    <h1>Upload Completed</h1>
+    {% for message in messages %}
+        <p>{{ message }}</p>
+    {% endfor %}
+    <a href="{% url 'upload_political_violence' %}">Upload another file</a>
+</body>
+</html>

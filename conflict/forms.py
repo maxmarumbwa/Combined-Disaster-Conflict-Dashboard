@@ -30,3 +30,19 @@ class DisplacementEventForm(forms.ModelForm):
 
 class CSVUploadForm(forms.Form):
     csv_file = forms.FileField(label="Upload CSV file")
+
+
+from django import forms
+
+
+### upload monthly political violence data via csv file ###
+class PoliticalViolenceUploadForm(forms.Form):
+    csv_file = forms.FileField(
+        label="Select a CSV file",
+        help_text="Upload a CSV with Province, Month, Year, Events, Fatalities",
+    )
+    reset = forms.BooleanField(
+        required=False,
+        label="Reset table before import",
+        help_text="Delete all existing records before import",
+    )
