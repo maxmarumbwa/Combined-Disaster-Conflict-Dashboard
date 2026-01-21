@@ -19,8 +19,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
     path("", include("regions.urls")),
     path("", include("conflict.urls")),
-    path("", include("political_violence_events.urls")),
 ]
