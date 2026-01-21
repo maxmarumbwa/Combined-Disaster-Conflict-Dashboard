@@ -16,4 +16,9 @@ urlpatterns = [
         views.add_political_violence_record,
         name="add_political_violence_record",
     ),
+    path(
+        "fatalities/province/<int:province_id>/",
+        views.fatalities_timeseries,
+        name="fatalities_timeseries",
+    ),
 ]

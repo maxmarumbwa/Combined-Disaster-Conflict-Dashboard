@@ -243,3 +243,29 @@ def add_political_violence_record(request):
         form = PoliticalViolenceManualForm()
 
     return render(request, "conflict/add_manual.html", {"form": form})
+
+
+# Chart view for fatalities time series
+from django.shortcuts import render, get_object_or_404
+from conflict.models import PoliticalViolenceAdm1Monthly
+from regions.models import adm1
+
+
+def fatalities_timeseries(request, province_id):
+    province = get_object_or_404(adm1, id=province_id)
+
+    qs = (
+        PoliticalViolenceAdm1Monthly.objects.filter(province=province)
+        .order_by("year", "month")
+        .values("year", "month", "fatalities")
+    )
+
+    labels = [f"{r['year']}-{str(r['month']).zfill(2)}" for r in qs]
+    data = [r["fatalities"] for r in qs]
+
+    context = {
+        "province": province,
+        "labels": labels,
+        "data": data,
+    }
+    return render(request, "conflict/fatalities_timeseries.html", context)

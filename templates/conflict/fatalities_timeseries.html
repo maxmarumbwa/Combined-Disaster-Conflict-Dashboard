@@ -1,0 +1,67 @@
+<!-- templates/conflict/fatalities_timeseries.html -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>{{ province.shapename2 }} Fatalities</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+    <style>
+        .chart-container {
+            width: 700px;
+            /* adjust */
+            height: 350px;
+            /* adjust */
+        }
+    </style>
+
+<body>
+
+    <h2>Fatalities Time Series – {{ province.shapename2 }}</h2>
+    <div class="chart-container"><canvas id="fatalitiesChart"></canvas></div>
+
+
+    <script>
+        const ctx = document.getElementById('fatalitiesChart');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ labels| safe }},
+            datasets: [{
+                label: 'Fatalities',
+                data: {{ data| safe }},
+            borderWidth: 2,
+            tension: 0.2,
+            fill: false
+        }]
+    },
+            options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Fatalities'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time (Year-Month)'
+                    }
+                }
+            }
+        }
+});
+    </script>
+
+</body>
+
+</html>
