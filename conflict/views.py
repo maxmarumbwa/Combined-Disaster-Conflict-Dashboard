@@ -116,22 +116,23 @@ def upload_political_violence(request):
                 PoliticalViolenceAdm1Monthly.objects.all().delete()
                 messages.warning(request, "Deleted all existing records.")
 
-            # Read CSV
-            total_rows = 0
+            decoded_file = csv_file.read().decode("utf-8").splitlines()
+            reader = list(csv.DictReader(decoded_file))
+            total_rows = len(reader)
+
+            request.session["import_progress"] = 0
+
             imported_rows = 0
             skipped_rows = 0
             province_totals = {}
 
-            decoded_file = csv_file.read().decode("utf-8").splitlines()
-            reader = csv.DictReader(decoded_file)
+            for index, row in enumerate(reader, start=1):
+                # Update progress in session
+                request.session["import_progress"] = int(index / total_rows * 100)
+                request.session.modified = True
 
-            for row in reader:
-                total_rows += 1
-
-                # Handle BOM
                 province_name = row.get("\ufeffProvince") or row.get("Province")
                 province_name = province_name.strip() if province_name else None
-
                 month_str = row["Month"].strip()
                 year = int(row["Year"].strip())
                 events = int(row["Events"].strip())
@@ -166,7 +167,7 @@ def upload_political_violence(request):
                     skipped_rows += 1
                     continue
 
-                # Prevent duplication using get_or_create
+                # Prevent duplication
                 obj, created = PoliticalViolenceAdm1Monthly.objects.get_or_create(
                     province=province_obj,
                     month=month_number,
@@ -174,7 +175,6 @@ def upload_political_violence(request):
                     defaults={"events": events, "fatalities": fatalities},
                 )
                 if not created:
-                    # Optionally update values if needed
                     obj.events = events
                     obj.fatalities = fatalities
                     obj.save()
@@ -186,7 +186,7 @@ def upload_political_violence(request):
 
             messages.success(
                 request,
-                f"Processed {total_rows} rows. Imported {imported_rows}, Skipped {skipped_rows}",
+                f"Imported {imported_rows} of {total_rows} rows. Skipped {skipped_rows}.",
             )
             messages.info(
                 request,
@@ -194,9 +194,17 @@ def upload_political_violence(request):
                 + ", ".join([f"{k}: {v}" for k, v in province_totals.items()]),
             )
 
+            # Reset progress
+            request.session["import_progress"] = 100
             return render(request, "conflict/upload_result.html")
 
     else:
         form = PoliticalViolenceUploadForm()
 
     return render(request, "conflict/upload.html", {"form": form})
+
+
+# Endpoint for AJAX to fetch progress
+def import_progress(request):
+    progress = request.session.get("import_progress", 0)
+    return JsonResponse({"progress": progress})

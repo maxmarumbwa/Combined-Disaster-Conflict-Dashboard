@@ -3,13 +3,60 @@
 <html>
 <head>
     <title>Upload Political Violence CSV</title>
+
+    <style>
+        .spinner-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 9999;
+            text-align: center;
+            padding-top: 200px;
+            font-family: Arial, sans-serif;
+        }
+
+        .spinner {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #2c7be5;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
+
 <body>
     <h1>Upload Political Violence CSV</h1>
-    <form method="post" enctype="multipart/form-data">
+
+    <form method="post" enctype="multipart/form-data" onsubmit="showSpinner()">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Upload</button>
+        <button type="submit" id="uploadBtn">Upload</button>
     </form>
+
+    <!-- Spinner -->
+    <div class="spinner-overlay" id="spinner">
+        <div class="spinner"></div>
+        <p><strong>Importing data…</strong></p>
+        <p>This may take a few minutes. Please do not refresh.</p>
+    </div>
+
+    <script>
+        function showSpinner() {
+            document.getElementById("spinner").style.display = "block";
+            document.getElementById("uploadBtn").disabled = true;
+        }
+    </script>
 </body>
 </html>
