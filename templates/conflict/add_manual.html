@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Political Violence Record</title>
+</head>
+<body>
+    <h1>Add Political Violence Record</h1>
+
+    {% for message in messages %}
+        <p><strong>{{ message }}</strong></p>
+    {% endfor %}
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save</button>
+    </form>
+
+    <br>
+    <a href="{% url 'upload_political_violence' %}">Upload CSV instead</a>
+</body>
+</html>

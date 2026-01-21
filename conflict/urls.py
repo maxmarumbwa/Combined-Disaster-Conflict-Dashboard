@@ -11,4 +11,9 @@ urlpatterns = [
         views.upload_political_violence,
         name="upload_political_violence",
     ),
+    path(
+        "add_political_violence/",
+        views.add_political_violence_record,
+        name="add_political_violence_record",
+    ),
 ]

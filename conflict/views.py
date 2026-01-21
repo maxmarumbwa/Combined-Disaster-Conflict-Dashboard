@@ -10,7 +10,7 @@ from .forms import DisplacementEventForm
 from .forms import CSVUploadForm
 from conflict.models import PoliticalViolenceAdm1Monthly
 from regions.models import adm1
-from .forms import PoliticalViolenceUploadForm
+from .forms import PoliticalViolenceUploadForm, PoliticalViolenceManualForm
 
 
 # Map view
@@ -208,3 +208,38 @@ def upload_political_violence(request):
 def import_progress(request):
     progress = request.session.get("import_progress", 0)
     return JsonResponse({"progress": progress})
+
+
+# Manual data entry for political violence
+def add_political_violence_record(request):
+    if request.method == "POST":
+        form = PoliticalViolenceManualForm(request.POST)
+
+        if form.is_valid():
+            province = form.cleaned_data["province"]
+            month = int(form.cleaned_data["month"])
+            year = form.cleaned_data["year"]
+            events = form.cleaned_data["events"]
+            fatalities = form.cleaned_data["fatalities"]
+
+            obj, created = PoliticalViolenceAdm1Monthly.objects.get_or_create(
+                province=province,
+                month=month,
+                year=year,
+                defaults={"events": events, "fatalities": fatalities},
+            )
+
+            if not created:
+                obj.events = events
+                obj.fatalities = fatalities
+                obj.save()
+                messages.info(request, "Existing record updated.")
+            else:
+                messages.success(request, "New record added successfully.")
+
+            return redirect("add_political_violence_record")
+
+    else:
+        form = PoliticalViolenceManualForm()
+
+    return render(request, "conflict/add_manual.html", {"form": form})
