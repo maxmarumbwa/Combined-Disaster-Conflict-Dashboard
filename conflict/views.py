@@ -302,3 +302,47 @@ def violence_timeseries(request, province_id):
         "metric": metric,
     }
     return render(request, "conflict/violence_timeseries.html", context)
+
+
+# GeoJSON with fatalities for choropleth
+# conflict/views.py
+from django.http import HttpResponse
+from django.core.serializers import serialize
+from regions.models import adm1
+from conflict.models import PoliticalViolenceAdm1Monthly
+import json
+
+
+def fatalities_choropleth_geojson(request):
+    year = 2023
+    month = 1
+
+    provinces = adm1.objects.all()
+
+    # attach fatalities dynamically
+    features = []
+    for province in provinces:
+        record = PoliticalViolenceAdm1Monthly.objects.filter(
+            province=province, year=year, month=month
+        ).first()
+
+        fatalities = record.fatalities if record else 0
+
+        features.append({"id": province.id, "fatalities": fatalities})
+
+    geojson = json.loads(
+        serialize("geojson", provinces, geometry_field="geom", fields=("shapename",))
+    )
+
+    # inject fatalities into properties
+    for feature in geojson["features"]:
+        pid = feature["id"]
+        match = next((f for f in features if f["id"] == pid), None)
+        feature["properties"]["fatalities"] = match["fatalities"] if match else 0
+
+    return HttpResponse(json.dumps(geojson), content_type="application/json")
+
+
+# Create a view to render the choropleth page
+def fatalities_choropleth_map(request):
+    return render(request, "conflict/fatalities_choropleth.html")

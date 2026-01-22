@@ -26,4 +26,14 @@ urlpatterns = [
         views.violence_timeseries,
         name="violence_timeseries",
     ),
+    path(
+        "geojson/fatalities/",
+        views.fatalities_choropleth_geojson,
+        name="fatalities_choropleth_geojson",
+    ),
+    path(
+        "map/fatalities/",
+        views.fatalities_choropleth_map,
+        name="fatalities_choropleth_map",
+    ),
 ]

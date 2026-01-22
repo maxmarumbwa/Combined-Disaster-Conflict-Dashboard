@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fatalities Choropleth</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
+
+    <style>
+        #map { height: 500px; }
+    </style>
+</head>
+<body>
+
+<h3>Political Violence Fatalities (1997-01)</h3>
+
+<div id="map"></div>
+
+<script>
+const map = L.map('map').setView([2.5, 23.5], 5);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18
+}).addTo(map);
+
+// very simple color function
+function getColor(value) {
+    return value > 50 ? '#800026' :
+           value > 20 ? '#BD0026' :
+           value > 10 ? '#E31A1C' :
+           value > 0  ? '#FC4E2A' :
+                        '#FFEDA0';
+}
+
+fetch("{% url 'fatalities_choropleth_geojson' %}")
+  .then(res => res.json())
+  .then(data => {
+      L.geoJSON(data, {
+          style: function(feature) {
+              return {
+                  fillColor: getColor(feature.properties.fatalities),
+                  weight: 1,
+                  color: '#555',
+                  fillOpacity: 0.7
+              };
+          }
+      }).addTo(map);
+  });
+</script>
+
+</body>
+</html>
