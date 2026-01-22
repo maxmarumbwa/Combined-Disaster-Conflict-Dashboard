@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import fatalities_choropleth_map
+from .views import fatalities_choropleth_geojson
 
 urlpatterns = [
     path("map/", views.displacement_map, name="displacement_map"),
@@ -37,5 +38,5 @@ urlpatterns = [
         views.fatalities_choropleth_map,
         name="fatalities_choropleth_map",
     ),
-    path("map/fatalities/", views.fatalities_choropleth_map, name="fatalities_map"),
+    path("api/choropleth/", views.political_violence_choropleth, name="choropleth_api"),
 ]

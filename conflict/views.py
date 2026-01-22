@@ -348,7 +348,7 @@ def fatalities_choropleth_map(request):
     return render(request, "conflict/fatalities_choropleth.html")
 
 
-# select year and month for choropleth
+# select year and month  and variable to display for choropleth
 import json
 from django.shortcuts import render
 from django.db.models import Sum
@@ -356,13 +356,15 @@ from regions.models import adm1
 from conflict.models import PoliticalViolenceAdm1Monthly
 
 
+## Plot choropleth map with year/month filter
 def fatalities_choropleth_map(request):
     """
-    Choropleth map showing fatalities per province with optional year/month filter.
+    Choropleth map showing fatalities or events per province with optional year/month filter.
     """
-    # Read GET parameters from dropdown
+    # Get GET parameters
     year = request.GET.get("year")
     month = request.GET.get("month")
+    indicator = request.GET.get("indicator", "fatalities")  # default to fatalities
 
     # Prepare dropdown options
     years = (
@@ -371,20 +373,21 @@ def fatalities_choropleth_map(request):
         .order_by("year")
     )
     months = range(1, 13)
+    indicators = ["fatalities", "events"]
 
     features = []
 
     if year and month:
+        # Aggregate based on selected indicator
         qs = (
             PoliticalViolenceAdm1Monthly.objects.filter(year=year, month=month)
             .values("province")
-            .annotate(total_fatalities=Sum("fatalities"))
+            .annotate(total_value=Sum(indicator))
         )
 
-        fatalities_lookup = {row["province"]: row["total_fatalities"] for row in qs}
+        value_lookup = {row["province"]: row["total_value"] for row in qs}
 
         for province in adm1.objects.all():
-            # Convert GeoDjango geometry to Python dict
             geojson_geom = json.loads(province.geom.geojson)
 
             features.append(
@@ -393,7 +396,9 @@ def fatalities_choropleth_map(request):
                     "geometry": geojson_geom,
                     "properties": {
                         "name": province.shapename2,
-                        "fatalities": fatalities_lookup.get(province.id, 0),
+                        "value": value_lookup.get(
+                            province.id, 0
+                        ),  # store as generic 'value'
                     },
                 }
             )
@@ -401,9 +406,61 @@ def fatalities_choropleth_map(request):
     context = {
         "years": years,
         "months": months,
+        "indicators": indicators,
         "selected_year": year,
         "selected_month": month,
+        "selected_indicator": indicator,
         "geojson": {"type": "FeatureCollection", "features": features},
     }
 
     return render(request, "conflict/fatalities_choropleth.html", context)
+
+
+# GENERIC API VIEW FOR TABLE ,CHOROPLETH DATA
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from regions.models import adm1
+from conflict.models import PoliticalViolenceAdm1Monthly
+import json
+
+
+@api_view(["GET"])
+def political_violence_choropleth(request):
+    """
+    Returns monthly events/fatalities per province for choropleth.
+    Optional GET parameters:
+        - year
+        - month
+        - indicator: "events" or "fatalities"
+    """
+    year = request.GET.get("year")
+    month = request.GET.get("month")
+    indicator = request.GET.get("indicator", "fatalities")  # default
+
+    # Filter by year/month if provided
+    qs = PoliticalViolenceAdm1Monthly.objects.all()
+    if year:
+        qs = qs.filter(year=year)
+    if month:
+        qs = qs.filter(month=month)
+
+    # Build a lookup: province_id -> value
+    value_lookup = {row.province.id: getattr(row, indicator, 0) for row in qs}
+
+    # Build GeoJSON
+    features = []
+    for province in adm1.objects.all():
+        geojson_geom = json.loads(province.geom.geojson)
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": geojson_geom,
+                "properties": {
+                    "name": province.shapename2,
+                    "value": value_lookup.get(province.id, 0),  # monthly value
+                },
+            }
+        )
+
+    return Response({"type": "FeatureCollection", "features": features})
