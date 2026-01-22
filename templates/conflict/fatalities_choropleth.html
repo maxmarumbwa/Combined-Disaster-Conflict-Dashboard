@@ -4,12 +4,10 @@
     <title>Fatalities Choropleth</title>
 
     <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-    </script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         #map { height: 500px; }
@@ -17,40 +15,59 @@
 </head>
 <body>
 
-<h3>Political Violence Fatalities (1997-01)</h3>
+<h2>Fatalities Choropleth</h2>
+
+<!-- Dropdown form -->
+<form method="get">
+    <label>Year:</label>
+    <select name="year">
+        <option value="">-- Select Year --</option>
+        {% for y in years %}
+            <option value="{{ y }}" {% if y|stringformat:"s" == selected_year %}selected{% endif %}>
+                {{ y }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label>Month:</label>
+    <select name="month">
+        <option value="">-- Select Month --</option>
+        {% for m in months %}
+            <option value="{{ m }}" {% if m|stringformat:"s" == selected_month %}selected{% endif %}>
+                {{ m }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <button type="submit">Load Map</button>
+</form>
+
+<hr>
 
 <div id="map"></div>
 
 <script>
-const map = L.map('map').setView([2.5, 23.5], 5);
+    const map = L.map("map").setView([-3.5, 23.5], 5);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18
-}).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap"
+    }).addTo(map);
 
-// very simple color function
-function getColor(value) {
-    return value > 50 ? '#800026' :
-           value > 20 ? '#BD0026' :
-           value > 10 ? '#E31A1C' :
-           value > 0  ? '#FC4E2A' :
-                        '#FFEDA0';
-}
+    const geojsonData = {{ geojson|safe }};
 
-fetch("{% url 'fatalities_choropleth_geojson' %}")
-  .then(res => res.json())
-  .then(data => {
-      L.geoJSON(data, {
-          style: function(feature) {
-              return {
-                  fillColor: getColor(feature.properties.fatalities),
-                  weight: 1,
-                  color: '#555',
-                  fillOpacity: 0.7
-              };
-          }
-      }).addTo(map);
-  });
+    if (geojsonData.features.length > 0) {
+        L.geoJSON(geojsonData, {
+            style: function(feature) {
+                const fatalities = feature.properties.fatalities || 0;
+                // Simple classification (keep as before)
+                const fillColor = fatalities > 50 ? "#800026" :
+                                  fatalities > 20 ? "#BD0026" :
+                                  fatalities > 5  ? "#E31A1C" :
+                                                    "#FFEDA0";
+                return { fillColor, color: "#000", weight: 1, fillOpacity: 0.7 };
+            }
+        }).addTo(map);
+    }
 </script>
 
 </body>

@@ -346,3 +346,64 @@ def fatalities_choropleth_geojson(request):
 # Create a view to render the choropleth page
 def fatalities_choropleth_map(request):
     return render(request, "conflict/fatalities_choropleth.html")
+
+
+# select year and month for choropleth
+import json
+from django.shortcuts import render
+from django.db.models import Sum
+from regions.models import adm1
+from conflict.models import PoliticalViolenceAdm1Monthly
+
+
+def fatalities_choropleth_map(request):
+    """
+    Choropleth map showing fatalities per province with optional year/month filter.
+    """
+    # Read GET parameters from dropdown
+    year = request.GET.get("year")
+    month = request.GET.get("month")
+
+    # Prepare dropdown options
+    years = (
+        PoliticalViolenceAdm1Monthly.objects.values_list("year", flat=True)
+        .distinct()
+        .order_by("year")
+    )
+    months = range(1, 13)
+
+    features = []
+
+    if year and month:
+        qs = (
+            PoliticalViolenceAdm1Monthly.objects.filter(year=year, month=month)
+            .values("province")
+            .annotate(total_fatalities=Sum("fatalities"))
+        )
+
+        fatalities_lookup = {row["province"]: row["total_fatalities"] for row in qs}
+
+        for province in adm1.objects.all():
+            # Convert GeoDjango geometry to Python dict
+            geojson_geom = json.loads(province.geom.geojson)
+
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": geojson_geom,
+                    "properties": {
+                        "name": province.shapename2,
+                        "fatalities": fatalities_lookup.get(province.id, 0),
+                    },
+                }
+            )
+
+    context = {
+        "years": years,
+        "months": months,
+        "selected_year": year,
+        "selected_month": month,
+        "geojson": {"type": "FeatureCollection", "features": features},
+    }
+
+    return render(request, "conflict/fatalities_choropleth.html", context)
