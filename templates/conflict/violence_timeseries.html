@@ -1,0 +1,47 @@
+<!-- templates/conflict/violence_timeseries.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ province.shapename }} – Time Series</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<h2>{{ province.shapename }} – {{ metric|title }} Time Series</h2>
+
+<form method="get">
+    <label for="metric">Metric:</label>
+    <select name="metric" id="metric" onchange="this.form.submit()">
+        <option value="fatalities" {% if metric == "fatalities" %}selected{% endif %}>
+            Fatalities
+        </option>
+        <option value="events" {% if metric == "events" %}selected{% endif %}>
+            Events
+        </option>
+    </select>
+</form>
+
+<div style="max-width:500px; height:350px;">
+    <canvas id="violenceChart"></canvas>
+</div>
+
+<script>
+const ctx = document.getElementById('violenceChart');
+
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ labels|safe }},
+        datasets: [{
+            label: "{{ metric|title }}",
+            data: {{ data|safe }},
+            borderWidth: 2,
+            tension: 0.25,
+            fill: false
+        }]
+    }
+});
+</script>
+
+</body>
+</html>

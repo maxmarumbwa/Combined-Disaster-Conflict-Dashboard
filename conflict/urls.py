@@ -21,4 +21,9 @@ urlpatterns = [
         views.fatalities_timeseries,
         name="fatalities_timeseries",
     ),
+    path(
+        "timeseries/province/<int:province_id>/",
+        views.violence_timeseries,
+        name="violence_timeseries",
+    ),
 ]
