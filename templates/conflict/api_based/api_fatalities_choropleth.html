@@ -60,12 +60,12 @@
         let geoLayer = null;
 
         function getColor(val) {
-            return val > 55 ? "#000000" :  // Black for values > 55
-                val > 50 ? "#800026" :
-                    val > 20 ? "#BD0026" :
+            return val > 55 ? "#4d004b" :  // Dark purple for > 55
+                val > 30 ? "#800026" :
+                    val > 10 ? "#BD0026" :
                         val > 5 ? "#E31A1C" :
-                            val > 2 ? "#FFEDA0" :
-                                "#FFFFFF";    // White for values ≤ 2
+                            val > 2 ? "#FED976" :
+                                "#ffffcc";    // Very light yellow for ≤ 2
         }
 
         function loadMap() {

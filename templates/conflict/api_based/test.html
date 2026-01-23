@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+
+    <h2>Test Page</h2>
+
+    <h3>Years</h3>
+    {% for y in years %}
+    <p>{{ y }}</p>
+    {% endfor %}
+
+    <hr>
+
+    <h3>Months</h3>
+    {% for value, label in months %}
+    <p>{{ value }} - {{ label }}</p>
+    {% endfor %}
+
+    <hr>
+
+    <h3>Indicators</h3>
+    {% for value, label in indicators %}
+    <p>{{ value }} - {{ label }}</p>
+    {% endfor %}
+
+</body>
+
+</html>

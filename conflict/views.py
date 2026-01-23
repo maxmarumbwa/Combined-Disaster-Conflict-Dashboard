@@ -200,7 +200,36 @@ def political_violence_choropleth_page(request):
 
     return render(
         request,
-        "conflict/api_based/api_fatalities_choropleth.html",
+        # "conflict/api_based/api_fatalities_choropleth.html",
+        "conflict/api_based/test.html",
+        context,
+    )
+
+
+# View to render a table of political violence data with optional year/month filters
+from conflict.models import PoliticalViolenceAdm1Monthly
+
+
+def political_violence_table(request):
+    year = request.GET.get("year")
+    month = request.GET.get("month")
+
+    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province")
+
+    if year:
+        qs = qs.filter(year=year)
+    if month:
+        qs = qs.filter(month=month)
+
+    qs = qs.order_by("province__shapename2", "year", "month")
+
+    context = {
+        "records": qs,
+    }
+
+    return render(
+        request,
+        "conflict/api_based/political_violence_table.html",
         context,
     )
 

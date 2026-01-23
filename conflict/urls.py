@@ -9,9 +9,14 @@ urlpatterns = [
     ),
     path("api/geojson/", views.political_violence_choropleth, name="choropleth_api"),
     path(
-        "api/choropleth/",
+        "map/choropleth/",
         views.political_violence_choropleth_page,
         name="political_violence_choropleth",
+    ),
+    path(
+        "table/",
+        views.political_violence_table,
+        name="political_violence_table",
     ),
 ]
 
