@@ -18,6 +18,11 @@ urlpatterns = [
         views.political_violence_table,
         name="political_violence_table",
     ),
+    path(
+        "api/table/",
+        views.political_violence_table_api,
+        name="political_violence_table_api",
+    ),
 ]
 
 
