@@ -231,23 +231,16 @@ def political_violence_choropleth_page(request):
 #     )
 
 
-# Table API view for political violence data
+# Table API view for political violence data with pagination
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from conflict.models import PoliticalViolenceAdm1Monthly
 from .serializers import PoliticalViolenceAdm1MonthlySerializer
+from .pagination import StandardResultsSetPagination
 
 
 @api_view(["GET"])
 def political_violence_table_api(request):
-    """
-    Tabular API for political violence data
-    Optional filters:
-        - year
-        - month
-        - province
-    """
-
     year = request.GET.get("year")
     month = request.GET.get("month")
     province_id = request.GET.get("province")
@@ -265,9 +258,12 @@ def political_violence_table_api(request):
 
     qs = qs.order_by("province__shapename2", "year", "month")
 
-    serializer = PoliticalViolenceAdm1MonthlySerializer(qs, many=True)
+    paginator = StandardResultsSetPagination()
+    page = paginator.paginate_queryset(qs, request)
 
-    return Response({"count": qs.count(), "results": serializer.data})
+    serializer = PoliticalViolenceAdm1MonthlySerializer(page, many=True)
+
+    return paginator.get_paginated_response(serializer.data)
 
 
 # =========================================================================================================
