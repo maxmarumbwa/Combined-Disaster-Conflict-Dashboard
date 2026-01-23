@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Political Violence Choropleth</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        #map {
+            height: 500px;
+        }
+    </style>
+</head>
+
+<body>
+    <P>{{ year}} {{ month}} {{ indicator}}</P>
+    <h2>Political Violence Choropleth </h2>
+
+    <!-- Controls -->
+    <form id="controls">
+        <label>Year:</label>
+        <select id="year">
+            <option value="">-- Select Year --</option>
+            {% for y in years %}
+            <option value="{{ y }}">{{ y }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Month:</label>
+        <select id="month">
+            <option value="">-- Select Month --</option>
+            {% for value, label in months %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+
+
+        <label>Indicator:</label>
+        <select id="indicator">
+            <option value="fatalities">Fatalities</option>
+            <option value="events">Events</option>
+        </select>
+
+        <button type="button" onclick="loadMap()">Load Map</button>
+    </form>
+
+    <hr>
+
+    <div id="map"></div>
+
+    <script>
+        const map = L.map("map").setView([-3.5, 23.5], 5);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap"
+        }).addTo(map);
+
+        let geoLayer = null;
+
+        function getColor(val) {
+            return val > 55 ? "#000000" :  // Black for values > 55
+                val > 50 ? "#800026" :
+                    val > 20 ? "#BD0026" :
+                        val > 5 ? "#E31A1C" :
+                            val > 2 ? "#FFEDA0" :
+                                "#FFFFFF";    // White for values ≤ 2
+        }
+
+        function loadMap() {
+            const year = document.getElementById("year").value;
+            const month = document.getElementById("month").value;
+            const indicator = document.getElementById("indicator").value;
+
+            if (!year || !month) {
+                alert("Please select year and month");
+                return;
+            }
+
+            const url = `/api/geojson/?year=${year}&month=${month}&indicator=${indicator}`;
+            console.log("Fetching:", url);
+
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+
+                    if (geoLayer) {
+                        map.removeLayer(geoLayer);
+                    }
+
+                    geoLayer = L.geoJSON(data, {
+                        style: feature => ({
+                            fillColor: getColor(feature.properties.value || 0),
+                            weight: 1,
+                            color: "#000",
+                            fillOpacity: 0.7
+                        }),
+                        onEachFeature: (feature, layer) => {
+                            layer.bindPopup(
+                                `<strong>${feature.properties.name}</strong><br>
+                             ${indicator}: ${feature.properties.value}`
+                            );
+                        }
+                    }).addTo(map);
+                })
+                .catch(err => console.error(err));
+        }
+    </script>
+
+</body>
+
+</html>
