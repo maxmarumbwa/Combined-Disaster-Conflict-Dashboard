@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Political Violence Dashboard</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Political Violence Dashboard</h2>
+
+<!-- ================= FILTERS ================= -->
+<h3>Filters</h3>
+
+<label>Year:</label>
+<select id="yearFilter">
+    <option value="">All</option>
+</select>
+
+<label>Month:</label>
+<select id="monthFilter">
+    <option value="">All</option>
+    <option value="1">January</option>
+    <option value="2">February</option>
+    <option value="3">March</option>
+    <option value="4">April</option>
+    <option value="5">May</option>
+    <option value="6">June</option>
+    <option value="7">July</option>
+    <option value="8">August</option>
+    <option value="9">September</option>
+    <option value="10">October</option>
+    <option value="11">November</option>
+    <option value="12">December</option>
+</select>
+
+<button onclick="applyFilters()">Apply</button>
+
+<hr>
+
+<!-- ================= TABLE ================= -->
+<h3>Data Table</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Province</th>
+            <th>Year</th>
+            <th>Month</th>
+            <th>Events</th>
+            <th>Fatalities</th>
+        </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+</table>
+
+<!-- ================= CHART ================= -->
+<h3>Total Fatalities by Province</h3>
+<canvas id="fatalitiesChart" height="120"></canvas>
+
+<!-- ================= JS ================= -->
+<script>
+const baseApiUrl = "/api/political-violence/";
+let currentData = [];
+let chartInstance = null;
+
+/* ---------------- FETCH DATA ---------------- */
+async function loadData(url = baseApiUrl) {
+    const response = await fetch(url);
+    const data = await response.json();
+
+    currentData = data.results;
+
+    populateTable();
+    populateYearDropdown();
+    updateChart();
+}
+
+/* ---------------- TABLE ---------------- */
+function populateTable() {
+    const tbody = document.getElementById("tableBody");
+    tbody.innerHTML = "";
+
+    currentData.forEach(item => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${item.admin1}</td>
+                <td>${item.year}</td>
+                <td>${item.month}</td>
+                <td>${item.events}</td>
+                <td>${item.fatalities}</td>
+            </tr>
+        `;
+    });
+}
+
+/* ---------------- YEAR DROPDOWN ---------------- */
+function populateYearDropdown() {
+    const yearSelect = document.getElementById("yearFilter");
+    const years = [...new Set(currentData.map(d => d.year))].sort();
+
+    yearSelect.innerHTML = `<option value="">All</option>`;
+    years.forEach(y => {
+        yearSelect.innerHTML += `<option value="${y}">${y}</option>`;
+    });
+}
+
+/* ---------------- APPLY FILTERS ---------------- */
+function applyFilters() {
+    const year = document.getElementById("yearFilter").value;
+    const month = document.getElementById("monthFilter").value;
+
+    let url = baseApiUrl + "?";
+    if (year) url += `year=${year}&`;
+    if (month) url += `month=${month}&`;
+
+    loadData(url);
+}
+
+/* ---------------- CHART ---------------- */
+function updateChart() {
+    const totals = {};
+
+    currentData.forEach(item => {
+        totals[item.admin1] = (totals[item.admin1] || 0) + item.fatalities;
+    });
+
+    const labels = Object.keys(totals);
+    const values = Object.values(totals);
+
+    const ctx = document.getElementById("fatalitiesChart").getContext("2d");
+
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    chartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Fatalities",
+                data: values
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+/* ---------------- INIT ---------------- */
+loadData();
+</script>
+
+</body>
+</html>

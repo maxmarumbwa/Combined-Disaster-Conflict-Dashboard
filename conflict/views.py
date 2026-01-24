@@ -270,6 +270,10 @@ def political_conflict_table(request):
     return render(request, "conflict/api_based/political_violence_table.html")
 
 
+def political_conflict_chart(request):
+    return render(request, "conflict/api_based/political_violence_chart.html")
+
+
 # =========================================================================================================
 # 				                                 OLD
 # =========================================================================================================
