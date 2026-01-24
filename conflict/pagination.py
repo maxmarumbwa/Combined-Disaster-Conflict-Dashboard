@@ -2,6 +2,6 @@ from rest_framework.pagination import PageNumberPagination
 
 
 class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 5  # default rows per page
+    page_size = 13  # default rows per page
     page_size_query_param = "page_size"
     max_page_size = 100

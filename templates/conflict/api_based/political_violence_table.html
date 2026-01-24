@@ -1,26 +1,116 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Fetch API Test</title>
+    <title>Political Violence Table</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+        }
+        th {
+            background: #f2f2f2;
+        }
+        .pagination {
+            margin-top: 10px;
+        }
+        button {
+            padding: 5px 10px;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>Fetch API Test</h2>
+<h2>Political Violence Data (Stage 2)</h2>
 
-<button onclick="loadData()">Load Data</button>
+<table id="data-table">
+    <thead>
+        <tr>
+            <th>Province</th>
+            <th>Year</th>
+            <th>Month</th>
+            <th>Events</th>
+            <th>Fatalities</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 
-<pre id="output"></pre>
+<div class="pagination">
+    <button id="prevBtn">Previous</button>
+    <span id="pageInfo"></span>
+    <button id="nextBtn">Next</button>
+</div>
 
 <script>
-function loadData() {
-    fetch("/api/table/")
-        .then(response => response.json())
-        .then(data => {
-            console.log(data); // see in browser console
-            document.getElementById("output").innerText =
-                JSON.stringify(data, null, 2);
+    const API_URL = "/api/table/";
+
+    const tableBody = document.querySelector("#data-table tbody");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const pageInfo = document.getElementById("pageInfo");
+
+    let currentPage = 1;
+    let nextPageUrl = null;
+    let prevPageUrl = null;
+
+    // Load page 1 initially
+    loadPage(API_URL);
+
+    function loadPage(url) {
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                renderTable(data.results);
+                updatePagination(data);
+            })
+            .catch(error => console.error("Error:", error));
+    }
+
+    function renderTable(rows) {
+        tableBody.innerHTML = "";
+
+        rows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${row.province}</td>
+                <td>${row.year}</td>
+                <td>${row.month}</td>
+                <td>${row.events}</td>
+                <td>${row.fatalities}</td>
+            `;
+            tableBody.appendChild(tr);
         });
-}
+    }
+
+    function updatePagination(data) {
+        nextPageUrl = data.next;
+        prevPageUrl = data.previous;
+
+        pageInfo.textContent = `Page ${currentPage}`;
+
+        prevBtn.disabled = !prevPageUrl;
+        nextBtn.disabled = !nextPageUrl;
+    }
+
+    prevBtn.addEventListener("click", () => {
+        if (prevPageUrl) {
+            currentPage--;
+            loadPage(prevPageUrl);
+        }
+    });
+
+    nextBtn.addEventListener("click", () => {
+        if (nextPageUrl) {
+            currentPage++;
+            loadPage(nextPageUrl);
+        }
+    });
 </script>
 
 </body>
