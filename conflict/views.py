@@ -266,6 +266,10 @@ def political_violence_table_api(request):
     return paginator.get_paginated_response(serializer.data)
 
 
+def political_conflict_table(request):
+    return render(request, "conflict/api_based/political_violence_table.html")
+
+
 # =========================================================================================================
 # 				                                 OLD
 # =========================================================================================================

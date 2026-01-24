@@ -1,52 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Political Violence Table</title>
-    <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 6px;
-            text-align: left;
-        }
-        th {
-            background: #f4f4f4;
-        }
-    </style>
+    <title>Fetch API Test</title>
 </head>
 <body>
 
-<h2>Political Violence Data</h2>
+<h2>Fetch API Test</h2>
 
-<table>
-    <thead>
-        <tr>
-            <th>Province</th>
-            <th>Year</th>
-            <th>Month</th>
-            <th>Events</th>
-            <th>Fatalities</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for row in records %}
-        <tr>
-            <td>{{ row.province.shapename2 }}</td>
-            <td>{{ row.year }}</td>
-            <td>{{ row.month }}</td>
-            <td>{{ row.events }}</td>
-            <td>{{ row.fatalities }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5">No data found</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<button onclick="loadData()">Load Data</button>
+
+<pre id="output"></pre>
+
+<script>
+function loadData() {
+    fetch("/api/table/")
+        .then(response => response.json())
+        .then(data => {
+            console.log(data); // see in browser console
+            document.getElementById("output").innerText =
+                JSON.stringify(data, null, 2);
+        });
+}
+</script>
 
 </body>
 </html>
