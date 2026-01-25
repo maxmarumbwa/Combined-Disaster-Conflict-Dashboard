@@ -439,6 +439,114 @@ def monthly_political_violence_anom_api(request):
     return Response(data)
 
 
+# Endpoint for yearly sums, yearly LT baseline, yearly anomalies
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import pandas as pd
+
+
+@api_view(["GET"])
+def yearly_political_violence_anom_api(request):
+    """
+    Returns province-specific YEARLY sums, yearly long-term baseline,
+    and yearly anomalies for fatalities and events.
+    Optional query param: ?year=YYYY
+    """
+
+    # ---------------------------------------------------
+    # 1. Fetch data
+    # ---------------------------------------------------
+    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province").values(
+        "year",
+        "month",
+        "province__shapename2",
+        "fatalities",
+        "events",
+    )
+
+    df = pd.DataFrame.from_records(qs)
+
+    if df.empty:
+        return Response([])
+
+    # Optional year filter (apply AFTER baseline computation)
+    year_filter = request.GET.get("year")
+
+    # ---------------------------------------------------
+    # 2. Compute YEARLY SUMS per province
+    # ---------------------------------------------------
+    yearly_totals = (
+        df.groupby(["province__shapename2", "year"], as_index=False)[
+            ["fatalities", "events"]
+        ]
+        .sum()
+        .rename(
+            columns={
+                "fatalities": "fatalities_yearly_total",
+                "events": "events_yearly_total",
+            }
+        )
+    )
+
+    # ---------------------------------------------------
+    # 3. Compute YEARLY long-term baseline (LT avg)
+    #    mean of yearly totals across all years
+    # ---------------------------------------------------
+    yearly_baseline = (
+        yearly_totals.groupby("province__shapename2")[
+            [
+                "fatalities_yearly_total",
+                "events_yearly_total",
+            ]
+        ]
+        .mean()
+        .reset_index()
+        .rename(
+            columns={
+                "fatalities_yearly_total": "fatalities_yearly_baseline",
+                "events_yearly_total": "events_yearly_baseline",
+            }
+        )
+    )
+
+    # ---------------------------------------------------
+    # 4. Merge baseline back to yearly totals
+    # ---------------------------------------------------
+    df_yearly = yearly_totals.merge(
+        yearly_baseline,
+        on="province__shapename2",
+        how="left",
+    )
+
+    # ---------------------------------------------------
+    # 5. Compute YEARLY anomalies
+    # ---------------------------------------------------
+    df_yearly["fatalities_yearly_anomaly"] = (
+        df_yearly["fatalities_yearly_total"] - df_yearly["fatalities_yearly_baseline"]
+    )
+
+    df_yearly["events_yearly_anomaly"] = (
+        df_yearly["events_yearly_total"] - df_yearly["events_yearly_baseline"]
+    )
+
+    # ---------------------------------------------------
+    # 6. Apply optional year filter
+    # ---------------------------------------------------
+    if year_filter:
+        df_yearly = df_yearly[df_yearly["year"] == int(year_filter)]
+
+    # ---------------------------------------------------
+    # 7. Prepare API response
+    # ---------------------------------------------------
+    data = (
+        df_yearly.rename(columns={"province__shapename2": "province"})
+        .sort_values(["year", "province"])
+        .to_dict(orient="records")
+    )
+
+    return Response(data)
+
+
 def political_conflict_table(request):
     return render(request, "conflict/api_based/political_violence_table.html")
 
@@ -453,6 +561,10 @@ def political_conflict_pie_chart(request):
 
 def political_conflict_monthly_anomaly(request):
     return render(request, "conflict/api_based/political_violence_monthly_anomaly.html")
+
+
+def political_conflict_yearly_anomaly(request):
+    return render(request, "conflict/api_based/political_violence_yearly_anomaly.html")
 
 
 # =========================================================================================================

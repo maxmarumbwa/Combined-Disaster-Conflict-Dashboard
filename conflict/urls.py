@@ -58,6 +58,16 @@ urlpatterns = [
         views.monthly_political_violence_anom_api,
         name="monthly_political_violence_anom_api",
     ),
+    path(
+        "api/political_violence/yearly_anomaly/",
+        views.yearly_political_violence_anom_api,
+        name="yearly_political_violence_anom_api",
+    ),
+    path(
+        "derived/political_conflict_yearly_anomaly/",
+        views.political_conflict_yearly_anomaly,
+        name="political_conflict_yearly_anomaly",
+    ),
 ]
 
 
