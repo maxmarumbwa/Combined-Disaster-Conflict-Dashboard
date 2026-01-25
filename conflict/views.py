@@ -240,7 +240,7 @@ from .pagination import StandardResultsSetPagination
 
 
 @api_view(["GET"])
-def political_violence_table_api(request):
+def political_violence_table_paginated_api(request):
     year = request.GET.get("year")
     month = request.GET.get("month")
     province_id = request.GET.get("province")
@@ -264,6 +264,30 @@ def political_violence_table_api(request):
     serializer = PoliticalViolenceAdm1MonthlySerializer(page, many=True)
 
     return paginator.get_paginated_response(serializer.data)
+
+
+@api_view(["GET"])
+def political_violence_table_api(request):
+    year = request.GET.get("year")
+    month = request.GET.get("month")
+    province_id = request.GET.get("province")
+
+    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province")
+
+    if year:
+        qs = qs.filter(year=year)
+
+    if month:
+        qs = qs.filter(month=month)
+
+    if province_id:
+        qs = qs.filter(province_id=province_id)
+
+    qs = qs.order_by("province__shapename2", "year", "month")
+
+    serializer = PoliticalViolenceAdm1MonthlySerializer(qs, many=True)
+
+    return Response(serializer.data)
 
 
 def political_conflict_table(request):

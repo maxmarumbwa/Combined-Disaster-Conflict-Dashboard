@@ -15,47 +15,18 @@
         th {
             background: #f2f2f2;
         }
-        .controls {
-            margin-bottom: 10px;
-        }
         .pagination {
             margin-top: 10px;
+        }
+        button {
+            padding: 5px 10px;
         }
     </style>
 </head>
 
 <body>
 
-<h2>Political Violence Data (Stage 3)</h2>
-
-<div class="controls">
-    <label>Year:</label>
-    <select id="yearFilter">
-        <option value="">All</option>
-        <option value="2020">2020</option>
-        <option value="2021">2021</option>
-        <option value="2022">2022</option>
-    </select>
-
-    <label>Month:</label>
-    <select id="monthFilter">
-        <option value="">All</option>
-        <option value="1">January</option>
-        <option value="2">February</option>
-        <option value="3">March</option>
-        <option value="4">April</option>
-        <option value="5">May</option>
-        <option value="6">June</option>
-        <option value="7">July</option>
-        <option value="8">August</option>
-        <option value="9">September</option>
-        <option value="10">October</option>
-        <option value="11">November</option>
-        <option value="12">December</option>
-    </select>
-
-    <button id="applyFilters">Apply</button>
-</div>
+<h2>Political Violence Data (Stage 2)</h2>
 
 <table id="data-table">
     <thead>
@@ -77,49 +48,28 @@
 </div>
 
 <script>
-    const BASE_API_URL = "/api/table/";
+    const API_URL = "/api/table/";
 
     const tableBody = document.querySelector("#data-table tbody");
     const prevBtn = document.getElementById("prevBtn");
     const nextBtn = document.getElementById("nextBtn");
     const pageInfo = document.getElementById("pageInfo");
 
-    const yearFilter = document.getElementById("yearFilter");
-    const monthFilter = document.getElementById("monthFilter");
-    const applyBtn = document.getElementById("applyFilters");
-
     let currentPage = 1;
     let nextPageUrl = null;
     let prevPageUrl = null;
 
-    // Load initial data
-    loadPage(buildUrl());
-
-    function buildUrl(pageUrl = null) {
-        if (pageUrl) return pageUrl;
-
-        const params = new URLSearchParams();
-        params.append("page", currentPage);
-
-        if (yearFilter.value) {
-            params.append("year", yearFilter.value);
-        }
-
-        if (monthFilter.value) {
-            params.append("month", monthFilter.value);
-        }
-
-        return `${BASE_API_URL}?${params.toString()}`;
-    }
+    // Load page 1 initially
+    loadPage(API_URL);
 
     function loadPage(url) {
         fetch(url)
-            .then(res => res.json())
+            .then(response => response.json())
             .then(data => {
                 renderTable(data.results);
                 updatePagination(data);
             })
-            .catch(err => console.error(err));
+            .catch(error => console.error("Error:", error));
     }
 
     function renderTable(rows) {
@@ -160,11 +110,6 @@
             currentPage++;
             loadPage(nextPageUrl);
         }
-    });
-
-    applyBtn.addEventListener("click", () => {
-        currentPage = 1;
-        loadPage(buildUrl());
     });
 </script>
 

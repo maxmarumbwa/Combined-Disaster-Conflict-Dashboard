@@ -20,6 +20,11 @@ urlpatterns = [
     # ),
     path(
         "api/table/",
+        views.political_violence_table_paginated_api,
+        name="political_violence_table_api",
+    ),
+    path(
+        "api/analytics/",
         views.political_violence_table_api,
         name="political_violence_table_api",
     ),
