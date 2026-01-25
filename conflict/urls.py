@@ -43,6 +43,11 @@ urlpatterns = [
         views.political_conflict_pie_chart,
         name="yearly piechart political violence",
     ),
+    path(
+        "derived/yearly_political_violence/",
+        views.yearly_political_violence_api,
+        name="year_political_violence",
+    ),
 ]
 
 

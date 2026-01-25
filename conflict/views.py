@@ -291,6 +291,46 @@ def political_violence_table_api(request):
     return Response(serializer.data)
 
 
+# Get monthly fatalities by province for a given year
+from django.db.models import Sum
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import PoliticalViolenceAdm1Monthly
+
+
+@api_view(["GET"])
+def yearly_political_violence_api(request):
+    """
+    Returns yearly totals of fatalities and events per province.
+    Optional query param: ?year=YYYY
+    """
+    year_filter = request.GET.get("year")
+
+    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province")
+    if year_filter:
+        qs = qs.filter(year=year_filter)
+
+    # Aggregate fatalities and events by province AND year
+    totals = (
+        qs.values("province__shapename2", "year")  # group by province and year
+        .annotate(total_fatalities=Sum("fatalities"), total_events=Sum("events"))
+        .order_by("year", "province__shapename2")
+    )
+
+    # Convert to JSON-friendly format
+    data = [
+        {
+            "year": t["year"],
+            "province": t["province__shapename2"],
+            "fatalities": t["total_fatalities"],
+            "events": t["total_events"],
+        }
+        for t in totals
+    ]
+
+    return Response(data)
+
+
 def political_conflict_table(request):
     return render(request, "conflict/api_based/political_violence_table.html")
 
