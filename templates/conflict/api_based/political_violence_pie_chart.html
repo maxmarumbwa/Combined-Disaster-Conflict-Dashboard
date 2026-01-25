@@ -5,10 +5,39 @@
     <title>Yearly Fatalities by Province</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        #controls { margin-bottom: 20px; }
-        select { padding: 5px; margin-right: 10px; }
-        #chartWrapper { max-width: 700px; margin: auto; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        #content {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        #chartWrapper, #tableWrapper {
+            flex: 1 1 300px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 6px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
     </style>
 </head>
 <body>
@@ -20,8 +49,22 @@
     <select id="yearSelect"></select>
 </div>
 
-<div id="chartWrapper">
-    <canvas id="fatalitiesPieChart"></canvas>
+<div id="content">
+    <div id="chartWrapper">
+        <canvas id="fatalitiesPieChart"></canvas>
+    </div>
+
+    <div id="tableWrapper">
+        <table id="totalsTable">
+            <thead>
+                <tr>
+                    <th>Province</th>
+                    <th>Fatalities</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 </div>
 
 <script>
@@ -46,7 +89,6 @@ async function loadData() {
     const response = await fetch(url);
     const data = await response.json();
 
-    // Aggregate fatalities by province
     const totals = {};
     data.forEach(d => {
         if (!totals[d.province]) totals[d.province] = 0;
@@ -67,6 +109,7 @@ async function renderChart() {
     if (chart) {
         chart.data.labels = labels;
         chart.data.datasets[0].data = values;
+        chart.options.plugins.title.text = `Fatalities by Province in ${yearSelect.value}`;
         chart.update();
     } else {
         chart = new Chart(ctx, {
@@ -88,20 +131,33 @@ async function renderChart() {
             options: {
                 responsive: true,
                 plugins: {
-                    title: {
-                        display: true,
-                        text: `Fatalities by Province in ${yearSelect.value}`
-                    },
-                    legend: {
-                        position: 'right'
-                    }
+                    title: { display: true, text: `Fatalities by Province in ${yearSelect.value}` },
+                    legend: { position: 'right' }
                 }
             }
         });
     }
+
+    renderTable(labels, values);
 }
 
-// Update chart when year changes
+// Render table
+function renderTable(labels, values) {
+    const tbody = document.querySelector("#totalsTable tbody");
+    tbody.innerHTML = "";
+    labels.forEach((province, i) => {
+        const tr = document.createElement("tr");
+        const tdProvince = document.createElement("td");
+        tdProvince.textContent = province;
+        const tdFatalities = document.createElement("td");
+        tdFatalities.textContent = values[i];
+        tr.appendChild(tdProvince);
+        tr.appendChild(tdFatalities);
+        tbody.appendChild(tr);
+    });
+}
+
+// Update chart and table when year changes
 yearSelect.addEventListener("change", renderChart);
 
 // Initialize
