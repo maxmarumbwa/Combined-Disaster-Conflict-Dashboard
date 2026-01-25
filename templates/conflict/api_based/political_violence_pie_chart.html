@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Yearly Fatalities by Province</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #controls { margin-bottom: 20px; }
+        select { padding: 5px; margin-right: 10px; }
+        #chartWrapper { max-width: 700px; margin: auto; }
+    </style>
+</head>
+<body>
+
+<h2>Yearly Fatalities by Province</h2>
+
+<div id="controls">
+    Year:
+    <select id="yearSelect"></select>
+</div>
+
+<div id="chartWrapper">
+    <canvas id="fatalitiesPieChart"></canvas>
+</div>
+
+<script>
+const API_URL = "http://localhost:8000/api/analytics/";
+let chart = null;
+
+// Dropdown reference
+const yearSelect = document.getElementById("yearSelect");
+
+// Load available years from API
+async function loadYears() {
+    const data = await fetch(API_URL).then(res => res.json());
+    const years = Array.from(new Set(data.map(d => d.year))).sort((a,b) => a-b);
+    years.forEach(y => yearSelect.add(new Option(y, y)));
+    yearSelect.value = years[0];
+}
+
+// Fetch data and aggregate fatalities by province for selected year
+async function loadData() {
+    const year = yearSelect.value;
+    const url = `${API_URL}?year=${year}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // Aggregate fatalities by province
+    const totals = {};
+    data.forEach(d => {
+        if (!totals[d.province]) totals[d.province] = 0;
+        totals[d.province] += d.fatalities;
+    });
+
+    const labels = Object.keys(totals);
+    const values = Object.values(totals);
+
+    return { labels, values };
+}
+
+// Render or update pie chart
+async function renderChart() {
+    const { labels, values } = await loadData();
+    const ctx = document.getElementById("fatalitiesPieChart").getContext("2d");
+
+    if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+    } else {
+        chart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fatalities',
+                    data: values,
+                    backgroundColor: [
+                        '#FF6384','#36A2EB','#FFCE56','#4BC0C0',
+                        '#9966FF','#FF9F40','#C9CBCF','#FF5A5F',
+                        '#56D798','#845EC2','#FF6F91','#00C9A7'
+                    ],
+                    borderColor: '#000000',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Fatalities by Province in ${yearSelect.value}`
+                    },
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Update chart when year changes
+yearSelect.addEventListener("change", renderChart);
+
+// Initialize
+loadYears().then(renderChart);
+</script>
+
+</body>
+</html>

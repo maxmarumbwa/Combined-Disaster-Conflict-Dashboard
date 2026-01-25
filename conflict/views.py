@@ -299,6 +299,10 @@ def political_conflict_chart(request):
     return render(request, "conflict/api_based/political_violence_chart.html")
 
 
+def political_conflict_pie_chart(request):
+    return render(request, "conflict/api_based/political_violence_pie_chart.html")
+
+
 # =========================================================================================================
 # 				                                 OLD
 # =========================================================================================================
