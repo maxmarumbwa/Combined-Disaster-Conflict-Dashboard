@@ -266,6 +266,7 @@ def political_violence_table_paginated_api(request):
     return paginator.get_paginated_response(serializer.data)
 
 
+# TABLE API without pagination
 @api_view(["GET"])
 def political_violence_table_api(request):
     year = request.GET.get("year")

@@ -1,93 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Monthly Fatalities by Province</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        #chartWrapper {
+            max-width: 900px;
+            margin: auto;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Fatalities by Province (Jan 1997)</h2>
+
+<div id="chartWrapper">
+    <canvas id="fatalitiesBarChart"></canvas>
+</div>
+
 <script>
-const apiUrl = "http://localhost:8000/api/table/";
+const API_URL = "http://localhost:8000/api/analytics/?year=1997&month=1";
 
-async function fetchAllData(url) {
-    let allResults = [];
-    while (url) {
-        const response = await fetch(url);
-        const data = await response.json();
-        allResults = allResults.concat(data.results);
-        url = data.next; // move to next page
-    }
-    return allResults;
-}
-
-function formatMonthYear(item) {
-    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    return monthNames[item.month - 1] + " " + item.year;
+async function loadData() {
+    const response = await fetch(API_URL);
+    return await response.json();
 }
 
 async function renderChart() {
-    const results = await fetchAllData(apiUrl);
+    const data = await loadData();
 
-    // Sort by year then month
-    results.sort((a, b) => a.year - b.year || a.month - b.month);
+    // Direct mapping (no aggregation)
+    const labels = data.map(row => row.province);
+    const values = data.map(row => row.fatalities);
 
-    // Get unique month-year labels
-    const labelsSet = new Set(results.map(formatMonthYear));
-    const labels = Array.from(labelsSet);
+    const ctx = document.getElementById("fatalitiesBarChart").getContext("2d");
 
-    // Group fatalities by province
-    const provinces = {};
-    results.forEach(item => {
-        if (!provinces[item.province]) {
-            provinces[item.province] = Array(labels.length).fill(0);
-        }
-        const index = labels.indexOf(formatMonthYear(item));
-        provinces[item.province][index] = item.fatalities;
-    });
-
-    // Create dataset for each province
-    const datasets = Object.keys(provinces).map((province, i) => {
-        const color = `hsl(${(i * 50) % 360}, 70%, 50%)`;
-        return {
-            label: province,
-            data: provinces[province],
-            fill: false,
-            borderColor: color,
-            backgroundColor: color,
-            tension: 0.3
-        };
-    });
-
-    const ctx = document.getElementById('fatalitiesChart').getContext('2d');
     new Chart(ctx, {
-        type: 'line',
+        type: "bar",
         data: {
             labels: labels,
-            datasets: datasets
+            datasets: [{
+                label: "Fatalities",
+                data: values
+            }]
         },
         options: {
             responsive: true,
             plugins: {
                 title: {
                     display: true,
-                    text: 'Monthly Fatalities by Province'
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                },
-                legend: {
-                    position: 'bottom'
+                    text: "Fatalities by Province (Jan 1997)"
                 }
-            },
-            interaction: {
-                mode: 'nearest',
-                intersect: false
             },
             scales: {
                 y: {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Fatalities'
+                        text: "Fatalities"
                     }
                 },
                 x: {
                     title: {
                         display: true,
-                        text: 'Month-Year'
+                        text: "Province"
                     }
                 }
             }
@@ -97,3 +79,6 @@ async function renderChart() {
 
 renderChart();
 </script>
+
+</body>
+</html>
