@@ -4,80 +4,111 @@
     <meta charset="utf-8">
     <title>Monthly Fatalities by Province</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-        }
-        #chartWrapper {
-            max-width: 900px;
-            margin: auto;
-        }
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #controls { margin-bottom: 20px; }
+        select { padding: 5px; margin-right: 10px; }
+        #chartWrapper { max-width: 900px; margin: auto; }
     </style>
 </head>
 <body>
 
-<h2>Fatalities by Province (Jan 1997)</h2>
+<h2>Fatalities by Province</h2>
+
+<div id="controls">
+    Year:
+    <select id="yearSelect"></select>
+    Month:
+    <select id="monthSelect"></select>
+</div>
 
 <div id="chartWrapper">
     <canvas id="fatalitiesBarChart"></canvas>
 </div>
 
 <script>
-const API_URL = "http://localhost:8000/api/analytics/?year=1997&month=1";
+const API_URL = "http://localhost:8000/api/analytics/";
+let chart = null;
 
+// Dropdown references
+const yearSelect = document.getElementById("yearSelect");
+const monthSelect = document.getElementById("monthSelect");
+
+// Load available years and months from API
+async function loadDates() {
+    const data = await fetch(API_URL).then(res => res.json());
+
+    // Extract unique years and months
+    const years = Array.from(new Set(data.map(d => d.year))).sort((a,b) => a-b);
+    const months = Array.from(new Set(data.map(d => d.month))).sort((a,b) => a-b);
+
+    // Fill year dropdown
+    years.forEach(y => yearSelect.add(new Option(y, y)));
+    // Fill month dropdown with names
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    months.forEach(m => monthSelect.add(new Option(monthNames[m-1], m)));
+
+    // Set defaults
+    yearSelect.value = years[0];
+    monthSelect.value = months[0];
+}
+
+// Fetch data for selected year/month
 async function loadData() {
-    const response = await fetch(API_URL);
+    const year = yearSelect.value;
+    const month = monthSelect.value;
+    const url = `${API_URL}?year=${year}&month=${month}`;
+    const response = await fetch(url);
     return await response.json();
 }
 
+// Render or update chart
 async function renderChart() {
     const data = await loadData();
 
-    // Direct mapping (no aggregation)
-    const labels = data.map(row => row.province);
-    const values = data.map(row => row.fatalities);
+    const labels = data.map(d => d.province);
+    const values = data.map(d => d.fatalities);
 
     const ctx = document.getElementById("fatalitiesBarChart").getContext("2d");
 
-    new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Fatalities",
-                data: values
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                title: {
-                    display: true,
-                    text: "Fatalities by Province (Jan 1997)"
-                }
+    if (chart) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = values;
+        chart.update();
+    } else {
+        chart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Fatalities",
+                    data: values,
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgba(0,0,0,1)',
+                    borderWidth: 2,
+                    borderSkipped: false
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: "Fatalities"
-                    }
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: true, text: "Fatalities by Province" }
                 },
-                x: {
-                    title: {
-                        display: true,
-                        text: "Province"
-                    }
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: "Fatalities" } },
+                    x: { title: { display: true, text: "Province" } }
                 }
             }
-        }
-    });
+        });
+    }
 }
 
-renderChart();
+// Update chart when dropdowns change
+yearSelect.addEventListener("change", renderChart);
+monthSelect.addEventListener("change", renderChart);
+
+// Initialize
+loadDates().then(renderChart);
 </script>
 
 </body>
