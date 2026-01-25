@@ -1,4 +1,5 @@
 import json
+import pandas as pd
 import csv
 from io import TextIOWrapper
 from datetime import datetime
@@ -343,7 +344,6 @@ def yearly_political_violence_api(request):
     Returns yearly totals of fatalities and events per province.
     Optional query param: ?year=YYYY
     """
-
     # Fetch all relevant data from DB
     qs = PoliticalViolenceAdm1Monthly.objects.select_related("province").values(
         "year", "month", "province__shapename2", "fatalities", "events"
@@ -351,16 +351,13 @@ def yearly_political_violence_api(request):
     # print(qs[:10])  # print first 10 rows only
     # Convert to DataFrame
     df = pd.DataFrame.from_records(qs)
-    print(df.head())
-
+    # print(df.head())
     if df.empty:
         return Response([])
-
     # Optional year filter
     year_filter = request.GET.get("year")
     if year_filter:
         df = df[df["year"] == int(year_filter)]
-
     # Group by year and province, sum metrics
     grouped = df.groupby(["year", "province__shapename2"], as_index=False)[
         ["fatalities", "events"]
@@ -369,6 +366,74 @@ def yearly_political_violence_api(request):
     # Convert to JSON-friendly format
     data = grouped.rename(columns={"province__shapename2": "province"}).to_dict(
         orient="records"
+    )
+
+    return Response(data)
+
+
+# Get monthly lta baseline and anomalies for fatalities and events per province USING PANDAS
+@api_view(["GET"])
+def monthly_political_violence_anom_api(request):
+    """
+    Returns province-specific monthly lat and anomalies for fatalities and events.
+    Optional query param: ?year=YYYY
+    """
+    # Fetch all relevant data from DB
+    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province").values(
+        "year",
+        "month",
+        "province__shapename2",
+        "fatalities",
+        "events",
+    )
+    df = pd.DataFrame.from_records(qs)
+
+    if df.empty:
+        return Response([])
+    # Optional year filter (AFTER fatalities_monthly_baseline is computed)
+    year_filter = request.GET.get("year")
+    # ---------------------------------------------------
+    # 1. Province-specific monthly long-term averages
+    # ---------------------------------------------------
+    fatalities_monthly_baseline = (
+        df.groupby(["province__shapename2", "month"])[["fatalities", "events"]]
+        .mean()
+        .reset_index()
+        .rename(
+            columns={
+                "fatalities": "fatalities_monthly_mean",
+                "events": "events_monthly_mean",
+            }
+        )
+    )
+
+    # ---------------------------------------------------
+    # 2. Merge fatalities_monthly_baseline back to original dataframe
+    # ---------------------------------------------------
+    df = df.merge(
+        fatalities_monthly_baseline, on=["province__shapename2", "month"], how="left"
+    )
+
+    # ---------------------------------------------------
+    # 3. Compute anomalies
+    # ---------------------------------------------------
+    df["fatalities_anomaly"] = df["fatalities"] - df["fatalities_monthly_mean"]
+
+    df["events_anomaly"] = df["events"] - df["events_monthly_mean"]
+
+    # ---------------------------------------------------
+    # 4. Apply optional year filter
+    # ---------------------------------------------------
+    if year_filter:
+        df = df[df["year"] == int(year_filter)]
+
+    # ---------------------------------------------------
+    # 5. Prepare API response (NO SUMS)
+    # ---------------------------------------------------
+    data = (
+        df.rename(columns={"province__shapename2": "province"})
+        .sort_values(["year", "month", "province"])
+        .to_dict(orient="records")
     )
 
     return Response(data)
@@ -384,6 +449,10 @@ def political_conflict_chart(request):
 
 def political_conflict_pie_chart(request):
     return render(request, "conflict/api_based/political_violence_pie_chart.html")
+
+
+def political_conflict_monthly_anomaly(request):
+    return render(request, "conflict/api_based/political_violence_monthly_anomaly.html")
 
 
 # =========================================================================================================
