@@ -292,7 +292,46 @@ def political_violence_table_api(request):
 
 
 # Get monthly fatalities by province for a given year
-from django.db.models import Sum
+# from django.db.models import Sum
+# from rest_framework.decorators import api_view
+# from rest_framework.response import Response
+# from .models import PoliticalViolenceAdm1Monthly
+
+
+# @api_view(["GET"])
+# def yearly_political_violence_api(request):
+#     """
+#     Returns yearly totals of fatalities and events per province.
+#     Optional query param: ?year=YYYY
+#     """
+#     year_filter = request.GET.get("year")
+
+#     qs = PoliticalViolenceAdm1Monthly.objects.select_related("province")
+#     if year_filter:
+#         qs = qs.filter(year=year_filter)
+
+#     # Aggregate fatalities and events by province AND year
+#     totals = (
+#         qs.values("province__shapename2", "year")  # group by province and year
+#         .annotate(total_fatalities=Sum("fatalities"), total_events=Sum("events"))
+#         .order_by("year", "province__shapename2")
+#     )
+
+#     # Convert to JSON-friendly format
+#     data = [
+#         {
+#             "year": t["year"],
+#             "province": t["province__shapename2"],
+#             "fatalities": t["total_fatalities"],
+#             "events": t["total_events"],
+#         }
+#         for t in totals
+#     ]
+
+#     return Response(data)
+
+# Get yearly totals of fatalities and events per province USING PANDAS
+import pandas as pd
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import PoliticalViolenceAdm1Monthly
@@ -304,29 +343,33 @@ def yearly_political_violence_api(request):
     Returns yearly totals of fatalities and events per province.
     Optional query param: ?year=YYYY
     """
-    year_filter = request.GET.get("year")
 
-    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province")
-    if year_filter:
-        qs = qs.filter(year=year_filter)
-
-    # Aggregate fatalities and events by province AND year
-    totals = (
-        qs.values("province__shapename2", "year")  # group by province and year
-        .annotate(total_fatalities=Sum("fatalities"), total_events=Sum("events"))
-        .order_by("year", "province__shapename2")
+    # Fetch all relevant data from DB
+    qs = PoliticalViolenceAdm1Monthly.objects.select_related("province").values(
+        "year", "month", "province__shapename2", "fatalities", "events"
     )
+    # print(qs[:10])  # print first 10 rows only
+    # Convert to DataFrame
+    df = pd.DataFrame.from_records(qs)
+    print(df.head())
+
+    if df.empty:
+        return Response([])
+
+    # Optional year filter
+    year_filter = request.GET.get("year")
+    if year_filter:
+        df = df[df["year"] == int(year_filter)]
+
+    # Group by year and province, sum metrics
+    grouped = df.groupby(["year", "province__shapename2"], as_index=False)[
+        ["fatalities", "events"]
+    ].sum()
 
     # Convert to JSON-friendly format
-    data = [
-        {
-            "year": t["year"],
-            "province": t["province__shapename2"],
-            "fatalities": t["total_fatalities"],
-            "events": t["total_events"],
-        }
-        for t in totals
-    ]
+    data = grouped.rename(columns={"province__shapename2": "province"}).to_dict(
+        orient="records"
+    )
 
     return Response(data)
 
