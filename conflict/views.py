@@ -551,6 +551,7 @@ def yearly_political_violence_anom_api(request):
 from rest_framework.decorators import api_view
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from django.core.cache import cache
 import json
 
 from regions.models import adm1
@@ -575,7 +576,9 @@ def adm1_yearly_violence_geojson(request):
     # 1. Yearly totals for selected year
     # ---------------------------------------------------
     yearly_totals = {}
-    qs_year = PoliticalViolenceAdm1Monthly.objects.filter(year=year)
+    qs_year = PoliticalViolenceAdm1Monthly.objects.filter(year=year).only(
+        "province_id", "fatalities"
+    )
 
     for r in qs_year:
         pid = r.province_id
@@ -587,7 +590,10 @@ def adm1_yearly_violence_geojson(request):
     totals_all = {}
     counts_all = {}
 
-    qs_all = PoliticalViolenceAdm1Monthly.objects.all()
+    qs_all = PoliticalViolenceAdm1Monthly.objects.all().only(
+        "province_id", "fatalities"
+    )
+
     for r in qs_all:
         pid = r.province_id
         totals_all[pid] = totals_all.get(pid, 0) + r.fatalities
@@ -596,11 +602,24 @@ def adm1_yearly_violence_geojson(request):
     baselines = {pid: totals_all[pid] / counts_all[pid] for pid in totals_all}
 
     # ---------------------------------------------------
-    # 3. Build GeoJSON
+    # 3. Build GeoJSON (CACHED + SIMPLIFIED geometry)
     # ---------------------------------------------------
     features = []
 
-    for province in adm1.objects.all():
+    for province in adm1.objects.all().only("id", "shapename2", "geom"):
+
+        # ---- geometry cache (huge speedup)
+        cache_key = f"adm1_geom_simplified_{province.id}"
+        geom = cache.get(cache_key)
+
+        if not geom:
+            geom = json.loads(
+                province.geom.simplify(
+                    tolerance=0.02, preserve_topology=True  # adjust if needed
+                ).geojson
+            )
+            cache.set(cache_key, geom, None)  # cache forever
+
         total = yearly_totals.get(province.id, 0)
         baseline = baselines.get(province.id, 0)
         anomaly = total - baseline
@@ -608,7 +627,7 @@ def adm1_yearly_violence_geojson(request):
         features.append(
             {
                 "type": "Feature",
-                "geometry": json.loads(province.geom.geojson),
+                "geometry": geom,
                 "properties": {
                     "province": province.shapename2,
                     "year": year,
