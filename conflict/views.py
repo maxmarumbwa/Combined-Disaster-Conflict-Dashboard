@@ -547,6 +547,84 @@ def yearly_political_violence_anom_api(request):
     return Response(data)
 
 
+# GeoJSON endpoint for yearly political violence data with anomalies
+from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import json
+
+from regions.models import adm1
+from .models import PoliticalViolenceAdm1Monthly
+
+
+@api_view(["GET"])
+def adm1_yearly_violence_geojson(request):
+    """
+    Fast GeoJSON:
+    ADM1 polygons + shapename2 + yearly fatalities anomaly
+    Required: ?year=YYYY
+    """
+
+    year = request.GET.get("year")
+    if not year:
+        return Response({"error": "year parameter is required"}, status=400)
+
+    year = int(year)
+
+    # ---------------------------------------------------
+    # 1. Yearly totals for selected year
+    # ---------------------------------------------------
+    yearly_totals = {}
+    qs_year = PoliticalViolenceAdm1Monthly.objects.filter(year=year)
+
+    for r in qs_year:
+        pid = r.province_id
+        yearly_totals[pid] = yearly_totals.get(pid, 0) + r.fatalities
+
+    # ---------------------------------------------------
+    # 2. Long-term yearly baseline per province
+    # ---------------------------------------------------
+    totals_all = {}
+    counts_all = {}
+
+    qs_all = PoliticalViolenceAdm1Monthly.objects.all()
+    for r in qs_all:
+        pid = r.province_id
+        totals_all[pid] = totals_all.get(pid, 0) + r.fatalities
+        counts_all[pid] = counts_all.get(pid, 0) + 1
+
+    baselines = {pid: totals_all[pid] / counts_all[pid] for pid in totals_all}
+
+    # ---------------------------------------------------
+    # 3. Build GeoJSON
+    # ---------------------------------------------------
+    features = []
+
+    for province in adm1.objects.all():
+        total = yearly_totals.get(province.id, 0)
+        baseline = baselines.get(province.id, 0)
+        anomaly = total - baseline
+
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": json.loads(province.geom.geojson),
+                "properties": {
+                    "province": province.shapename2,
+                    "year": year,
+                    "fatalities_anomaly": round(anomaly, 2),
+                },
+            }
+        )
+
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+    )
+
+
 def political_conflict_table(request):
     return render(request, "conflict/api_based/political_violence_table.html")
 
@@ -565,6 +643,12 @@ def political_conflict_monthly_anomaly(request):
 
 def political_conflict_yearly_anomaly(request):
     return render(request, "conflict/api_based/political_violence_yearly_anomaly.html")
+
+
+def geojson_political_conflict_yearly_anomaly(request):
+    return render(
+        request, "conflict/api_based/geojson_political_violence_yearly_anomaly.html"
+    )
 
 
 # =========================================================================================================
