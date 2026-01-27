@@ -8,11 +8,6 @@ urlpatterns = [
         views.adm1_boundaries_geojson,
         name="adm1_boundaries_geojson",
     ),
-    path(
-        "api/geojson/adm1_map/",  # load admin oundaries in leafmap
-        views.adm1_geojson,
-        name="adm1_geojson",
-    ),
     path("api/geojson/", views.political_violence_choropleth, name="choropleth_api"),
     path(
         "upload_political_violence/",
@@ -66,11 +61,6 @@ urlpatterns = [
         name="year_political_violence",
     ),
     path(
-        "derived/political_conflict_monthly_anomaly/",
-        views.political_conflict_monthly_anomaly,
-        name="political_conflict_monthly_anomaly",
-    ),
-    path(
         "api/political_violence/monthly_anomaly/",
         views.monthly_political_violence_anom_api,
         name="monthly_political_violence_anom_api",
@@ -80,7 +70,19 @@ urlpatterns = [
         views.political_conflict_yearly_anomaly,
         name="political_conflict_yearly_anomaly",
     ),
+    # Maps
+    path(
+        "map/geojson/adm1_map/",  # load admin oundaries in leafmap
+        views.adm1_geojson,
+        name="adm1_geojson",
+    ),
+    path(
+        "map/political_conflict_monthly_anomaly/",
+        views.monthly_political_violence_anomaly,
+        name="monthly_political_violence_anomaly",
+    ),
 ]
+
 
 # ==================================================================================================
 

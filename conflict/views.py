@@ -573,6 +573,38 @@ def yearly_political_violence_anom_api(request):
     return Response(data)
 
 
+# views.py
+import json
+from django.http import JsonResponse
+from django.conf import settings
+
+
+def get_monthlychoropleth_data(request):
+    year = request.GET.get("year", 1997)
+    month = request.GET.get("month", 1)
+    field = request.GET.get("field", "fatalities_anomaly")
+
+    # Load GeoJSON
+    with open(settings.BASE_DIR / "static/data/geojson/a.geojson") as f:
+        geojson = json.load(f)
+
+    # Fetch violence data (could be from DB)
+    violence_data = get_violence_data(year, month)
+
+    # Create lookup dictionary
+    violence_dict = {item["province"]: item for item in violence_data}
+
+    # Join data server-side
+    for feature in geojson["features"]:
+        province_name = feature["properties"]["shapename2"]
+        if province_name in violence_dict:
+            feature["properties"]["violence_data"] = violence_dict[province_name]
+        else:
+            feature["properties"]["violence_data"] = None
+
+    return JsonResponse(geojson)
+
+
 # Adm1 boundaries page
 def adm1_geojson(request):
     return render(request, "conflict/api_based/adm1_geojson.html")
@@ -596,6 +628,10 @@ def political_conflict_monthly_anomaly(request):
 
 def political_conflict_yearly_anomaly(request):
     return render(request, "conflict/api_based/political_violence_yearly_anomaly.html")
+
+
+def monthly_political_violence_anomaly(request):
+    return render(request, "conflict/api_based/political_violence_monthly_anomaly.html")
 
 
 # =========================================================================================================
