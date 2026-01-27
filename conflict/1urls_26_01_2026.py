@@ -3,16 +3,6 @@ from . import views
 
 urlpatterns = [
     # API-based political violence URLs
-    path(
-        "api/geojson/adm1/",
-        views.adm1_boundaries_geojson,
-        name="adm1_boundaries_geojson",
-    ),
-    path(
-        "api/geojson/adm1_map/",  # load admin oundaries in leafmap
-        views.adm1_geojson,
-        name="adm1_geojson",
-    ),
     path("api/geojson/", views.political_violence_choropleth, name="choropleth_api"),
     path(
         "upload_political_violence/",
@@ -44,6 +34,16 @@ urlpatterns = [
         "api/table/",
         views.political_violence_table_paginated_api,
         name="political_violence_table_api",
+    ),
+    path(
+        "api/geojson/political_violence/yearly_anomaly/",
+        views.adm1_yearly_violence_geojson,
+        name="adm1_yearly_violence_geojson",
+    ),
+    path(
+        "derived/geojson_political_conflict_yearly_anomaly/",
+        views.geojson_political_conflict_yearly_anomaly,
+        name="geojson_political_conflict_yearly_anomaly",
     ),
     path(
         "table/political_violence/",

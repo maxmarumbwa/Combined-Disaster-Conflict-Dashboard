@@ -1,5 +1,4 @@
 import json
-from regions.models import adm1
 import pandas as pd
 import csv
 from io import TextIOWrapper
@@ -14,11 +13,15 @@ from .models import DisplacementEvent
 from .forms import DisplacementEventForm
 from .forms import CSVUploadForm
 from conflict.models import PoliticalViolenceAdm1Monthly
-
+from regions.models import adm1
 from .forms import PoliticalViolenceUploadForm, PoliticalViolenceManualForm
 
 
-# ADM1 GEOMETRY ONLY API - get from dataase
+# API for Loading  admin boundaries from db for loading to frontend once
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import json
+from regions.models import adm1
 
 
 @api_view(["GET"])
@@ -573,6 +576,114 @@ def yearly_political_violence_anom_api(request):
     return Response(data)
 
 
+# GeoJSON endpoint for yearly political violence data with anomalies
+from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.core.cache import cache
+import json
+
+from regions.models import adm1
+from .models import PoliticalViolenceAdm1Monthly
+
+
+@api_view(["GET"])
+def adm1_yearly_violence_geojson(request):
+    """
+    ADM1 GeoJSON with:
+    - yearly totals
+    - yearly baselines (LT avg)
+    - anomalies
+
+    Optional: ?year=YYYY
+    """
+
+    year_filter = request.GET.get("year")
+    if year_filter:
+        year_filter = int(year_filter)
+
+    # ---------------------------------------------------
+    # 1. Aggregate yearly totals per province
+    # ---------------------------------------------------
+    yearly_totals = {}  # (province_id, year) -> totals
+    totals_all = {}  # province_id -> total fatalities
+    counts_all = {}  # province_id -> count of records
+
+    qs = PoliticalViolenceAdm1Monthly.objects.all().only(
+        "province_id", "year", "fatalities", "events"
+    )
+
+    for r in qs:
+        key = (r.province_id, r.year)
+
+        if key not in yearly_totals:
+            yearly_totals[key] = {
+                "fatalities_yearly_total": 0,
+                "events_yearly_total": 0,
+            }
+
+        yearly_totals[key]["fatalities_yearly_total"] += r.fatalities
+        yearly_totals[key]["events_yearly_total"] += r.events
+
+        # baseline accumulators
+        totals_all[r.province_id] = totals_all.get(r.province_id, 0) + r.fatalities
+        counts_all[r.province_id] = counts_all.get(r.province_id, 0) + 1
+
+    # ---------------------------------------------------
+    # 2. Compute yearly baselines per province
+    # ---------------------------------------------------
+    baselines = {pid: totals_all[pid] / counts_all[pid] for pid in totals_all}
+
+    # ---------------------------------------------------
+    # 3. Build GeoJSON (cached + simplified geometry)
+    # ---------------------------------------------------
+    features = []
+
+    for province in adm1.objects.all().only("id", "shapename2", "geom"):
+
+        # ---- cached simplified geometry
+        cache_key = f"adm1_geom_simplified_{province.id}"
+        geom = cache.get(cache_key)
+
+        if not geom:
+            geom = json.loads(
+                province.geom.simplify(tolerance=0.02, preserve_topology=True).geojson
+            )
+            cache.set(cache_key, geom, None)
+
+        for (pid, year), stats in yearly_totals.items():
+            if pid != province.id:
+                continue
+            if year_filter and year != year_filter:
+                continue
+
+            baseline = baselines.get(pid, 0)
+
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": geom,
+                    "properties": {
+                        "province": province.shapename2,
+                        "year": year,
+                        "fatalities_yearly_total": stats["fatalities_yearly_total"],
+                        "events_yearly_total": stats["events_yearly_total"],
+                        "fatalities_yearly_baseline": round(baseline, 2),
+                        "fatalities_yearly_anomaly": round(
+                            stats["fatalities_yearly_total"] - baseline, 2
+                        ),
+                    },
+                }
+            )
+
+    return Response(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+    )
+
+
 # Adm1 boundaries page
 def adm1_geojson(request):
     return render(request, "conflict/api_based/adm1_geojson.html")
@@ -596,6 +707,12 @@ def political_conflict_monthly_anomaly(request):
 
 def political_conflict_yearly_anomaly(request):
     return render(request, "conflict/api_based/political_violence_yearly_anomaly.html")
+
+
+def geojson_political_conflict_yearly_anomaly(request):
+    return render(
+        request, "conflict/api_based/geojson_political_violence_yearly_anomaly.html"
+    )
 
 
 # =========================================================================================================
