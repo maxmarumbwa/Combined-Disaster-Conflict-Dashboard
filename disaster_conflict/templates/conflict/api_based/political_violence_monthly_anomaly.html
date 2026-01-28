@@ -26,117 +26,78 @@
     <div id="loading">Loading map data...</div>
     <div id="map"></div>
 
-    <script>
-        const map = L.map('map').setView([-4.0, 23.6], 5);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        
-        let violenceData = {};
-        let geoData;
-        
-        Promise.all([
-            fetch('http://localhost:8000/api/political_violence/monthly_anomaly/')
-                .then(res => res.json())
-                .then(apiData => {
-                    const lookup = {};
-                    apiData.forEach(item => {
-                        if (!lookup[item.province]) lookup[item.province] = {};
-                        lookup[item.province][`${item.year}-${item.month}`] = item;
-                    });
-                    return lookup;
-                })
-                .catch(() => ({})),
-            
-            fetch("{% static 'data/geojson/a.geojson' %}")
-                .then(res => res.json())
-                .then(geojson => geojson)
-                .catch(() => ({type: "FeatureCollection", features: []}))
-        ])
-        .then(([apiLookup, geojson]) => {
-            violenceData = apiLookup;
-            geoData = geojson;
-            document.getElementById('loading').style.display = 'none';
-            
-            if (Object.keys(violenceData).length === 0 || geoData.features.length === 0) {
-                showEmptyMap();
-            } else {
-                createChoropleth(1997, 1, 'fatalities_anomaly');
-            }
-        })
-        .catch(() => {
-            document.getElementById('loading').innerHTML = 
-                '<div style="color: red;">Error loading data</div>';
+<script>
+/* 1. Create the map */
+const map = L.map('map').setView([-4.0, 23.6], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let violenceData = {};
+let geoData;
+
+/* 2. Load all data using async/await */
+async function loadData() {
+    try {
+        const apiRes = await fetch('http://localhost:8000/api/political_violence/monthly_anomaly/');
+        const apiData = await apiRes.json();
+
+        const geoRes = await fetch("{% static 'data/geojson/a.geojson' %}");
+        geoData = await geoRes.json();
+
+        apiData.forEach(item => {
+            if (!violenceData[item.province]) violenceData[item.province] = {};
+            violenceData[item.province][`${item.year}-${item.month}`] = item;
         });
-        
-        function createChoropleth(year, month, field) {
-            const dateKey = `${year}-${month}`;
-            
-            if (window.choroplethLayer) {
-                map.removeLayer(window.choroplethLayer);
-            }
-            
-            function getColor(value) {
-                if (value === null || value === undefined) return '#cccccc';
-                return value > 50 ? '#800026' :
-                       value > 20 ? '#BD0026' :
-                       value > 10 ? '#E31A1C' :
-                       value > 0  ? '#FC4E2A' :
-                       value > -10 ? '#FD8D3C' :
-                       value > -20 ? '#FEB24C' :
-                       value > -50 ? '#FED976' :
-                                     '#FFEDA0';
-            }
-            
-            window.choroplethLayer = L.geoJSON(geoData, {
-                style: function(feature) {
-                    const province = feature.properties.shapeName;
-                    const data = violenceData[province] && violenceData[province][dateKey];
-                    const value = data ? data[field] : null;
-                    
-                    return {
-                        fillColor: getColor(value),
-                        weight: 1,
-                        opacity: 1,
-                        color: 'white',
-                        fillOpacity: 0.7
-                    };
-                },
-                onEachFeature: function(feature, layer) {
-                    const province = feature.properties.shapeName;
-                    const data = violenceData[province] && violenceData[province][dateKey];
-                    
-                    let popup = `<b>${province}</b>`;
-                    if (data) {
-                        popup += `<hr>`;
-                        popup += `<b>Date:</b> ${data.year}-${data.month}<br>`;
-                        popup += `<b>Fatalities:</b> ${data.fatalities}<br>`;
-                        popup += `<b>Events:</b> ${data.events}<br>`;
-                        popup += `<b>Fatalities Anomaly:</b> ${data.fatalities_anomaly.toFixed(1)}<br>`;
-                        popup += `<b>Events Anomaly:</b> ${data.events_anomaly.toFixed(1)}`;
-                    } else {
-                        popup += `<hr><i style="color: #666">No data for ${dateKey}</i>`;
-                    }
-                    layer.bindPopup(popup);
-                }
-            }).addTo(map);
-            
-            map.fitBounds(window.choroplethLayer.getBounds());
+
+        document.getElementById('loading').style.display = 'none';
+        createChoropleth(1997, 1, 'fatalities_anomaly');
+
+    } catch (error) {
+        document.getElementById('loading').innerHTML = 'Error loading data';
+    }
+}
+
+/* 3. Draw choropleth */
+function createChoropleth(year, month, field) {
+    const dateKey = `${year}-${month}`;
+
+    if (window.layer) map.removeLayer(window.layer);
+
+    const getColor = v =>
+        v == null ? '#ccc' :
+        v > 50 ? '#800026' :
+        v > 20 ? '#BD0026' :
+        v > 10 ? '#E31A1C' :
+        v > 0  ? '#FC4E2A' :
+        v > -10 ? '#FD8D3C' :
+        v > -20 ? '#FEB24C' :
+        '#FFEDA0';
+
+    window.layer = L.geoJSON(geoData, {
+        style: f => {
+            const p = f.properties.shapeName;
+            const d = violenceData[p]?.[dateKey];
+            return {
+                fillColor: getColor(d?.[field]),
+                color: 'white',
+                weight: 1,
+                fillOpacity: 0.7
+            };
+        },
+        onEachFeature: (f, l) => {
+            const p = f.properties.shapeName;
+            const d = violenceData[p]?.[dateKey];
+            l.bindPopup(d
+                ? `<b>${p}</b><br>Fatalities: ${d.fatalities}<br>Events: ${d.events}`
+                : `<b>${p}</b><br>No data`);
         }
-        
-        function showEmptyMap() {
-            document.getElementById('loading').style.display = 'none';
-            
-            L.geoJSON(geoData, {
-                style: {
-                    color: '#333',
-                    weight: 1,
-                    fillColor: '#f0f0f0',
-                    fillOpacity: 0.3
-                },
-                onEachFeature: function(feature, layer) {
-                    layer.bindPopup(`<b>${feature.properties.shapeName}</b><br><i>No data loaded</i>`);
-                }
-            }).addTo(map);
-        }
-    </script>
+    }).addTo(map);
+
+    map.fitBounds(window.layer.getBounds());
+}
+
+/* 4. Start everything */
+loadData();
+</script>
+
 </body>
 </html>
