@@ -95,11 +95,7 @@
         <option value="10">October</option>
         <option value="11">November</option>
         <option value="12">December</option>
-    </select><br><br>
-
-    <label>Filter by Value</label><br>
-    <input type="range" id="valueSlider" min="-100" max="100" step="1" value="-100">
-    <span id="sliderValue">-100</span>
+    </select>
 </div>
 
 <div id="loading">Loading data...</div>
@@ -108,7 +104,9 @@
 <script>
 /* -------------------- MAP SETUP -------------------- */
 const map = L.map('map').setView([-4.0, 23.6], 5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+    .addTo(map);
 
 let violenceData = {};
 let geoData;
@@ -151,8 +149,6 @@ async function loadData() {
 function drawMap(field) {
     if (layer) map.removeLayer(layer);
 
-    const sliderVal = parseFloat(document.getElementById('valueSlider').value);
-
     const getColor = v =>
         v == null ? '#ccc' :
         v > 50 ? '#800026' :
@@ -168,18 +164,8 @@ function drawMap(field) {
             const province = f.properties.shapename2;
             const d = violenceData[province];
 
-            if (!d || d[field] < sliderVal) {
-                // Maintain outline, remove fill
-                return {
-                    fillColor: 'transparent',
-                    weight: 1,
-                    color: 'white',
-                    fillOpacity: 0
-                };
-            }
-
             return {
-                fillColor: getColor(d[field]),
+                fillColor: getColor(d?.[field]),
                 weight: 1,
                 color: 'white',
                 fillOpacity: 0.7
@@ -189,27 +175,30 @@ function drawMap(field) {
             const province = f.properties.shapename2;
             const d = violenceData[province];
 
-            if(d && d[field] >= sliderVal){
-                l.bindPopup(`<b>${province}</b><br>
-                             ${field}: ${d[field]}<br>
-                             Fatalities: ${d.fatalities}<br>
-                             Events: ${d.events}`);
-            } else {
-                l.bindPopup(`<b>${province}</b><br>No data / Below filter`);
-            }
+            l.bindPopup(d
+                ? `<b>${province}</b><br>
+                   ${field}: ${d[field]}<br>
+                   Fatalities: ${d.fatalities}<br>
+                   Events: ${d.events}`
+                : `<b>${province}</b><br>No data`);
         }
     }).addTo(map);
 
     map.fitBounds(layer.getBounds());
+
+    // Update legend dynamically
     updateLegend(field);
 }
 
-
 /* -------------------- LEGEND -------------------- */
 const legend = L.control({ position: "bottomright" });
-legend.onAdd = function () { return L.DomUtil.create("div", "legend"); };
+legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "legend");
+    return div;
+};
 legend.addTo(map);
 
+// Define bins for different field types
 const anomalyBins = [
     { color: '#800026', label: '> 50' },
     { color: '#BD0026', label: '20 – 50' },
@@ -219,12 +208,14 @@ const anomalyBins = [
     { color: '#FEB24C', label: '-20 – -10' },
     { color: '#FFEDA0', label: '≤ -20' }
 ];
+
 const meanBins = [
     { color: '#800026', label: '> 50' },
     { color: '#BD0026', label: '20 – 50' },
     { color: '#E31A1C', label: '10 – 20' },
     { color: '#FC4E2A', label: '0 – 10' }
 ];
+
 const absBins = [
     { color: '#800026', label: '> 100' },
     { color: '#BD0026', label: '50 – 100' },
@@ -232,33 +223,34 @@ const absBins = [
     { color: '#FC4E2A', label: '0 – 20' }
 ];
 
-function updateLegend(field){
+// Function to update legend per field
+function updateLegend(field) {
     const div = document.querySelector(".legend");
-    if(!div) return;
+    if (!div) return;
 
+    // Determine title
     let title = field.includes("anomaly") ? "Anomaly" :
                 field.includes("mean") ? "Monthly Mean" :
                 field.charAt(0).toUpperCase() + field.slice(1);
 
-    let bins = field.includes("anomaly") ? anomalyBins :
-               field.includes("mean") ? meanBins :
-               absBins;
+    // Pick bins based on field
+    let bins;
+    if (field.includes("anomaly")) bins = anomalyBins;
+    else if (field.includes("mean")) bins = meanBins;
+    else bins = absBins;
 
-    div.innerHTML = `<strong>${title}</strong><br>` + 
-                    bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
+    // Generate legend HTML
+    div.innerHTML = `<strong>${title}</strong><br>` +
+        bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
 }
 
 /* -------------------- EVENTS -------------------- */
 document.getElementById('fieldSelect').addEventListener('change', loadData);
 document.getElementById('yearSelect').addEventListener('change', loadData);
 document.getElementById('monthSelect').addEventListener('change', loadData);
-document.getElementById('valueSlider').addEventListener('input', () => {
-    document.getElementById('sliderValue').innerText = document.getElementById('valueSlider').value;
-    drawMap(document.getElementById('fieldSelect').value);
-});
 
 /* -------------------- INIT -------------------- */
-(async function init(){
+(async function init() {
     await loadGeoJSON();
     loadData();
 })();
