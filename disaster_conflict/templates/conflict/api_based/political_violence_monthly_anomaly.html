@@ -22,6 +22,17 @@
             font-family: Arial;
         }
 
+        #animationControls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: Arial;
+        }
+
         #loading {
             position: absolute;
             top: 50%;
@@ -48,11 +59,17 @@
             margin-right: 6px;
             opacity: 0.9;
         }
+
+        #currentDate {
+            font-weight: bold;
+            margin-top: 5px;
+        }
     </style>
 </head>
 
 <body>
 
+<!-- Main controls -->
 <div id="controls">
     <label>Field</label><br>
     <select id="fieldSelect">
@@ -98,9 +115,85 @@
 
     <label>Filter by Value</label><br>
     <input type="range" id="valueSlider" min="-100" max="100" step="1" value="-100">
-    <span id="sliderValue">-100</span><br><br>
+    <span id="sliderValue">-100</span>
+</div>
+
+<!-- Animation controls -->
+<div id="animationControls">
+    <label>Animation Field</label><br>
+    <select id="animFieldSelect">
+        <option value="fatalities">Fatalities</option>
+        <option value="events">Events</option>
+        <option value="fatalities_monthly_mean">Fatalities Monthly Mean</option>
+        <option value="events_monthly_mean">Events Monthly Mean</option>
+        <option value="fatalities_anomaly" selected>Fatalities Anomaly</option>
+        <option value="events_anomaly">Events Anomaly</option>
+    </select><br><br>
+
+    <label>Start Year / Month</label><br>
+    <select id="startYear">
+        <option value="2001">2001</option>
+        <option value="2002">2002</option>
+        <option value="2003">2003</option>
+        <option value="2004">2004</option>
+        <option value="2005">2005</option>
+        <option value="2006">2006</option>      
+        <option value="2007">2007</option>
+        <option value="2008">2008</option>
+        <option value="2009">2009</option>
+        <option value="2010">2010</option>
+        <option value="2011">2011</option>
+        <option value="2012">2012</option>
+    </select>
+    <select id="startMonth">
+        <option value="1">January</option>
+        <option value="2">February</option>
+        <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>      
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>    
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+    </select><br><br>
+
+    <label>End Year / Month</label><br>
+    <select id="endYear">
+        <option value="2001">2001</option>
+        <option value="2002">2002</option>
+        <option value="2003">2003</option>
+        <option value="2004">2004</option>
+        <option value="2005">2005</option>
+        <option value="2006">2006</option>      
+        <option value="2007">2007</option>
+        <option value="2008">2008</option>
+        <option value="2009">2009</option>
+        <option value="2010">2010</option>
+        <option value="2011">2011</option>
+        <option value="2012" selected>2012</option>
+    </select>
+    <select id="endMonth">
+        <option value="1">January</option>
+        <option value="2">February</option>
+        <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>      
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>    
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+    </select><br><br>
 
     <button id="playPauseBtn">▶ Play</button>
+    <label>Speed (ms per step)</label>
+    <input type="number" id="animSpeed" value="1000" min="100" step="100"><br><br>
+    <div>Current: <span id="currentDate">-</span></div>
 </div>
 
 <div id="loading">Loading data...</div>
@@ -121,38 +214,35 @@ async function loadGeoJSON() {
     geoData = await res.json();
 }
 
-/* -------------------- LOAD API DATA -------------------- */
-async function loadData() {
-    const year = document.getElementById('yearSelect').value;
-    const month = document.getElementById('monthSelect').value;
-    const field = document.getElementById('fieldSelect').value;
+/* -------------------- PRELOAD DATA FOR ALL MONTHS -------------------- */
+let allData = {};
+async function preloadData() {
+    const years = Array.from(document.getElementById('yearSelect').options).map(o => o.value);
+    const months = Array.from(document.getElementById('monthSelect').options).map(o => o.value);
 
+    allData = {};
     document.getElementById('loading').style.display = 'block';
-
-    try {
-        const res = await fetch(
-            `http://localhost:8000/api/political_violence/monthly_anomaly/?year=${year}&month=${month}`
-        );
-        const apiData = await res.json();
-
-        violenceData = {};
-        apiData.forEach(item => {
-            violenceData[item.province] = item;
-        });
-
-        document.getElementById('loading').style.display = 'none';
-        drawMap(field);
-
-    } catch (err) {
-        document.getElementById('loading').innerHTML = 'Error loading data';
+    for (let y of years) {
+        allData[y] = {};
+        for (let m of months) {
+            const res = await fetch(
+                `http://localhost:8000/api/political_violence/monthly_anomaly/?year=${y}&month=${m}`
+            );
+            const apiData = await res.json();
+            let monthData = {};
+            apiData.forEach(item => { monthData[item.province] = item; });
+            allData[y][m] = monthData;
+        }
     }
+    document.getElementById('loading').style.display = 'none';
 }
 
-/* -------------------- DRAW CHOROPLETH -------------------- */
-function drawMap(field) {
+/* -------------------- DRAW MAP -------------------- */
+function drawMap(field, year=null, month=null) {
     if (layer) map.removeLayer(layer);
 
     const sliderVal = parseFloat(document.getElementById('valueSlider').value);
+    const data = (year && month) ? allData[year][month] : violenceData;
 
     const getColor = v =>
         v == null ? '#ccc' :
@@ -167,23 +257,17 @@ function drawMap(field) {
     layer = L.geoJSON(geoData, {
         style: f => {
             const province = f.properties.shapename2;
-            const d = violenceData[province];
+            const d = data[province];
 
-            if (!d || d[field] < sliderVal) {
-                return { fillColor: 'transparent', weight: 1, color: 'white', fillOpacity: 0 };
-            }
-
-            return { fillColor: getColor(d[field]), weight: 1, color: 'white', fillOpacity: 0.7 };
+            if (!d || d[field] < sliderVal) return { fillColor:'transparent', weight:1, color:'white', fillOpacity:0 };
+            return { fillColor:getColor(d[field]), weight:1, color:'white', fillOpacity:0.7 };
         },
         onEachFeature: (f, l) => {
             const province = f.properties.shapename2;
-            const d = violenceData[province];
+            const d = data[province];
 
-            if(d && d[field] >= sliderVal){
-                l.bindPopup(`<b>${province}</b><br>
-                             ${field}: ${d[field]}<br>
-                             Fatalities: ${d.fatalities}<br>
-                             Events: ${d.events}`);
+            if(d && d[field]>=sliderVal){
+                l.bindPopup(`<b>${province}</b><br>${field}: ${d[field]}<br>Fatalities: ${d.fatalities}<br>Events: ${d.events}`);
             } else {
                 l.bindPopup(`<b>${province}</b><br>No data / Below filter`);
             }
@@ -195,8 +279,8 @@ function drawMap(field) {
 }
 
 /* -------------------- LEGEND -------------------- */
-const legend = L.control({ position: "bottomright" });
-legend.onAdd = function () { return L.DomUtil.create("div", "legend"); };
+const legend = L.control({position:"bottomright"});
+legend.onAdd = function(){return L.DomUtil.create("div","legend");};
 legend.addTo(map);
 
 const anomalyBins = [
@@ -208,12 +292,14 @@ const anomalyBins = [
     { color: '#FEB24C', label: '-20 – -10' },
     { color: '#FFEDA0', label: '≤ -20' }
 ];
+
 const meanBins = [
     { color: '#800026', label: '> 50' },
     { color: '#BD0026', label: '20 – 50' },
     { color: '#E31A1C', label: '10 – 20' },
     { color: '#FC4E2A', label: '0 – 10' }
 ];
+
 const absBins = [
     { color: '#800026', label: '> 100' },
     { color: '#BD0026', label: '50 – 100' },
@@ -225,66 +311,86 @@ function updateLegend(field){
     const div = document.querySelector(".legend");
     if(!div) return;
 
-    let title = field.includes("anomaly") ? "Anomaly" :
-                field.includes("mean") ? "Monthly Mean" :
-                field.charAt(0).toUpperCase() + field.slice(1);
+    const title = field.includes("anomaly") ? "Anomaly" :
+                  field.includes("mean") ? "Monthly Mean" :
+                  field.charAt(0).toUpperCase()+field.slice(1);
 
-    let bins = field.includes("anomaly") ? anomalyBins :
-               field.includes("mean") ? meanBins :
-               absBins;
+    const bins = field.includes("anomaly") ? anomalyBins :
+                 field.includes("mean") ? meanBins :
+                 absBins;
 
-    div.innerHTML = `<strong>${title}</strong><br>` + 
-                    bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
+    div.innerHTML = `<strong>${title}</strong><br>` +
+                    bins.map(b=>`<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
 }
 
 /* -------------------- EVENTS -------------------- */
-document.getElementById('fieldSelect').addEventListener('change', loadData);
-document.getElementById('yearSelect').addEventListener('change', loadData);
-document.getElementById('monthSelect').addEventListener('change', loadData);
-document.getElementById('valueSlider').addEventListener('input', () => {
+document.getElementById('fieldSelect').addEventListener('change', ()=>{
+    violenceData = allData[document.getElementById('yearSelect').value][document.getElementById('monthSelect').value];
+    drawMap(document.getElementById('fieldSelect').value);
+});
+document.getElementById('yearSelect').addEventListener('change', ()=>{
+    violenceData = allData[document.getElementById('yearSelect').value][document.getElementById('monthSelect').value];
+    drawMap(document.getElementById('fieldSelect').value);
+});
+document.getElementById('monthSelect').addEventListener('change', ()=>{
+    violenceData = allData[document.getElementById('yearSelect').value][document.getElementById('monthSelect').value];
+    drawMap(document.getElementById('fieldSelect').value);
+});
+document.getElementById('valueSlider').addEventListener('input', ()=>{
     document.getElementById('sliderValue').innerText = document.getElementById('valueSlider').value;
     drawMap(document.getElementById('fieldSelect').value);
 });
 
-/* -------------------- TEMPORAL ANIMATION -------------------- */
-let animationInterval = null;
-let animating = false;
+/* -------------------- ANIMATION WITH INDEPENDENT FIELD -------------------- */
+let animationInterval=null;
+let animating=false;
 
-document.getElementById('playPauseBtn').addEventListener('click', () => {
-    const years = Array.from(document.getElementById('yearSelect').options).map(o => o.value);
-    const months = Array.from(document.getElementById('monthSelect').options).map(o => o.value);
+document.getElementById('playPauseBtn').addEventListener('click', ()=>{
+    const speed = parseInt(document.getElementById('animSpeed').value)||1000;
 
-    if (!animating) {
-        animating = true;
-        document.getElementById('playPauseBtn').textContent = '⏸ Pause';
-        let yearIndex = years.indexOf(document.getElementById('yearSelect').value);
-        let monthIndex = months.indexOf(document.getElementById('monthSelect').value);
+    const startYear = document.getElementById('startYear').value;
+    const startMonth = document.getElementById('startMonth').value;
+    const endYear = document.getElementById('endYear').value;
+    const endMonth = document.getElementById('endMonth').value;
 
-        animationInterval = setInterval(() => {
+    const years = Array.from(document.getElementById('yearSelect').options).map(o=>o.value);
+    const months = Array.from(document.getElementById('monthSelect').options).map(o=>o.value);
+
+    let yearIndex = years.indexOf(startYear);
+    let monthIndex = months.indexOf(startMonth);
+
+    const animField = document.getElementById('animFieldSelect').value;
+
+    animating=!animating;
+
+    if(animating){
+        document.getElementById('playPauseBtn').textContent='⏸ Pause';
+        animationInterval = setInterval(()=>{
+            const currentYear = years[yearIndex];
+            const currentMonth = months[monthIndex];
+            document.getElementById('currentDate').innerText = `${currentYear}-${currentMonth}`;
+
+            drawMap(animField, currentYear, currentMonth);
+
             monthIndex++;
-            if (monthIndex >= months.length) {
-                monthIndex = 0;
-                yearIndex++;
-                if (yearIndex >= years.length) yearIndex = 0;
+            if(monthIndex>=months.length){monthIndex=0; yearIndex++;}
+            if(years[yearIndex]>endYear || (years[yearIndex]==endYear && months[monthIndex]>endMonth)){
+                animating=false;
+                clearInterval(animationInterval);
+                document.getElementById('playPauseBtn').textContent='▶ Play';
             }
-
-            document.getElementById('yearSelect').value = years[yearIndex];
-            document.getElementById('monthSelect').value = months[monthIndex];
-
-            loadData();
-        }, 1000);
-
+        }, speed);
     } else {
-        animating = false;
-        document.getElementById('playPauseBtn').textContent = '▶ Play';
         clearInterval(animationInterval);
+        document.getElementById('playPauseBtn').textContent='▶ Play';
     }
 });
 
 /* -------------------- INIT -------------------- */
 (async function init(){
     await loadGeoJSON();
-    loadData();
+    await preloadData();
+    drawMap(document.getElementById('fieldSelect').value);
 })();
 </script>
 
