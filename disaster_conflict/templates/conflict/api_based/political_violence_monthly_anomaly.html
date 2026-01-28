@@ -33,7 +33,6 @@
             z-index: 2000;
         }
 
-        /* Legend style */
         .legend {
             background: white;
             padding: 6px 8px;
@@ -105,8 +104,7 @@
 /* -------------------- MAP SETUP -------------------- */
 const map = L.map('map').setView([-4.0, 23.6], 5);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-    .addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let violenceData = {};
 let geoData;
@@ -145,8 +143,9 @@ async function loadData() {
     }
 }
 
-/* -------------------- DRAW CHOROPLETH -------------------- */
+/* -------------------- DRAW CHOROPLETH WITH MAX/MIN HIGHLIGHT -------------------- */
 function drawMap(field) {
+
     if (layer) map.removeLayer(layer);
 
     const getColor = v =>
@@ -159,15 +158,33 @@ function drawMap(field) {
         v > -20 ? '#FEB24C' :
         '#FFEDA0';
 
+    // Find max/min for the selected field
+    const values = Object.values(violenceData).map(d => d[field]).filter(v => v != null);
+    const maxValue = Math.max(...values);
+    const minValue = Math.min(...values);
+
     layer = L.geoJSON(geoData, {
         style: f => {
             const province = f.properties.shapename2;
             const d = violenceData[province];
 
+            let fill = getColor(d?.[field]);
+            let borderColor = 'white';
+            let weight = 1;
+
+            // Highlight max/min provinces
+            if(d?.[field] === maxValue) {
+                borderColor = 'gold';
+                weight = 3;
+            } else if(d?.[field] === minValue) {
+                borderColor = 'black';
+                weight = 3;
+            }
+
             return {
-                fillColor: getColor(d?.[field]),
-                weight: 1,
-                color: 'white',
+                fillColor: fill,
+                color: borderColor,
+                weight: weight,
                 fillOpacity: 0.7
             };
         },
@@ -198,7 +215,6 @@ legend.onAdd = function () {
 };
 legend.addTo(map);
 
-// Define bins for different field types
 const anomalyBins = [
     { color: '#800026', label: '> 50' },
     { color: '#BD0026', label: '20 – 50' },
@@ -228,18 +244,15 @@ function updateLegend(field) {
     const div = document.querySelector(".legend");
     if (!div) return;
 
-    // Determine title
     let title = field.includes("anomaly") ? "Anomaly" :
                 field.includes("mean") ? "Monthly Mean" :
                 field.charAt(0).toUpperCase() + field.slice(1);
 
-    // Pick bins based on field
     let bins;
     if (field.includes("anomaly")) bins = anomalyBins;
     else if (field.includes("mean")) bins = meanBins;
     else bins = absBins;
 
-    // Generate legend HTML
     div.innerHTML = `<strong>${title}</strong><br>` +
         bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
 }
