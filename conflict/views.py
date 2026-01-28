@@ -402,9 +402,15 @@ def yearly_political_violence_api(request):
 def monthly_political_violence_anom_api(request):
     """
     Returns province-specific monthly lat and anomalies for fatalities and events.
-    Optional query param: ?year=YYYY
+    Optional query params:
+        ?year=YYYY
+        ?month=MM
+        ?year=YYYY&month=MM
     """
+
+    # ---------------------------------------------------
     # Fetch all relevant data from DB
+    # ---------------------------------------------------
     qs = PoliticalViolenceAdm1Monthly.objects.select_related("province").values(
         "year",
         "month",
@@ -412,12 +418,18 @@ def monthly_political_violence_anom_api(request):
         "fatalities",
         "events",
     )
+
     df = pd.DataFrame.from_records(qs)
 
     if df.empty:
         return Response([])
-    # Optional year filter (AFTER fatalities_monthly_baseline is computed)
+
+    # ---------------------------------------------------
+    # Read optional filters
+    # ---------------------------------------------------
     year_filter = request.GET.get("year")
+    month_filter = request.GET.get("month")
+
     # ---------------------------------------------------
     # 1. Province-specific monthly long-term averages
     # ---------------------------------------------------
@@ -434,24 +446,28 @@ def monthly_political_violence_anom_api(request):
     )
 
     # ---------------------------------------------------
-    # 2. Merge fatalities_monthly_baseline back to original dataframe
+    # 2. Merge baseline back to original dataframe
     # ---------------------------------------------------
     df = df.merge(
-        fatalities_monthly_baseline, on=["province__shapename2", "month"], how="left"
+        fatalities_monthly_baseline,
+        on=["province__shapename2", "month"],
+        how="left",
     )
 
     # ---------------------------------------------------
     # 3. Compute anomalies
     # ---------------------------------------------------
     df["fatalities_anomaly"] = df["fatalities"] - df["fatalities_monthly_mean"]
-
     df["events_anomaly"] = df["events"] - df["events_monthly_mean"]
 
     # ---------------------------------------------------
-    # 4. Apply optional year filter
+    # 4. Apply optional filters (AFTER anomalies)
     # ---------------------------------------------------
     if year_filter:
         df = df[df["year"] == int(year_filter)]
+
+    if month_filter:
+        df = df[df["month"] == int(month_filter)]
 
     # ---------------------------------------------------
     # 5. Prepare API response (NO SUMS)
