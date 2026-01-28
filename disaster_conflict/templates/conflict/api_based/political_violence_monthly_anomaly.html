@@ -96,7 +96,7 @@
         <option value="12">December</option>
     </select><br><br>
 
-    <label><input type="checkbox" id="highlightMaxMin" checked> Highlight Max/Min Provinces</label>
+    <label><input type="checkbox" id="highlightMaxMin" checked> Highlight Top 3 / Bottom 3 Provinces</label>
 </div>
 
 <div id="loading">Loading data...</div>
@@ -105,7 +105,6 @@
 <script>
 /* -------------------- MAP SETUP -------------------- */
 const map = L.map('map').setView([-4.0, 23.6], 5);
-
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 let violenceData = {};
@@ -145,7 +144,7 @@ async function loadData() {
     }
 }
 
-/* -------------------- DRAW CHOROPLETH WITH OPTIONAL MAX/MIN -------------------- */
+/* -------------------- DRAW CHOROPLETH WITH TOP 3 / BOTTOM 3 -------------------- */
 function drawMap(field) {
 
     if (layer) map.removeLayer(layer);
@@ -160,13 +159,15 @@ function drawMap(field) {
         v > -20 ? '#FEB24C' :
         '#FFEDA0';
 
-    // Check if highlighting is enabled
     const highlight = document.getElementById('highlightMaxMin').checked;
-    let maxValue, minValue;
+
+    let top3 = [], bottom3 = [];
     if(highlight){
-        const values = Object.values(violenceData).map(d => d[field]).filter(v => v != null);
-        maxValue = Math.max(...values);
-        minValue = Math.min(...values);
+        const sorted = Object.entries(violenceData)
+            .filter(([p, d]) => d?.[field] != null)
+            .sort((a,b) => b[1][field] - a[1][field]);
+        top3 = sorted.slice(0,3).map(([p,d]) => p);
+        bottom3 = sorted.slice(-3).map(([p,d]) => p);
     }
 
     layer = L.geoJSON(geoData, {
@@ -179,10 +180,10 @@ function drawMap(field) {
             let weight = 1;
 
             if(highlight){
-                if(d?.[field] === maxValue){
+                if(top3.includes(province)){
                     borderColor = 'gold';
                     weight = 3;
-                } else if(d?.[field] === minValue){
+                } else if(bottom3.includes(province)){
                     borderColor = 'black';
                     weight = 3;
                 }
@@ -199,27 +200,27 @@ function drawMap(field) {
             const province = f.properties.shapename2;
             const d = violenceData[province];
 
-            l.bindPopup(d
-                ? `<b>${province}</b><br>
-                   ${field}: ${d[field]}<br>
-                   Fatalities: ${d.fatalities}<br>
-                   Events: ${d.events}`
-                : `<b>${province}</b><br>No data`);
+            let label = d
+                ? `<b>${province}</b><br>${field}: ${d[field]}<br>Fatalities: ${d.fatalities}<br>Events: ${d.events}`
+                : `<b>${province}</b><br>No data`;
+
+            if(highlight && d){
+                if(top3.includes(province)) label += `<br><b style="color:gold">TOP 3</b>`;
+                if(bottom3.includes(province)) label += `<br><b style="color:black">BOTTOM 3</b>`;
+            }
+
+            l.bindPopup(label);
         }
     }).addTo(map);
 
     map.fitBounds(layer.getBounds());
 
-    // Update legend dynamically
     updateLegend(field);
 }
 
 /* -------------------- LEGEND -------------------- */
 const legend = L.control({ position: "bottomright" });
-legend.onAdd = function () {
-    const div = L.DomUtil.create("div", "legend");
-    return div;
-};
+legend.onAdd = function () { return L.DomUtil.create("div", "legend"); };
 legend.addTo(map);
 
 const anomalyBins = [
@@ -269,7 +270,7 @@ document.getElementById('yearSelect').addEventListener('change', loadData);
 document.getElementById('monthSelect').addEventListener('change', loadData);
 document.getElementById('highlightMaxMin').addEventListener('change', () => {
     const field = document.getElementById('fieldSelect').value;
-    drawMap(field); // redraw map when checkbox toggled
+    drawMap(field);
 });
 
 /* -------------------- INIT -------------------- */
