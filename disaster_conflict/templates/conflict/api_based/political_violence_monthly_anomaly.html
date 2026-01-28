@@ -94,7 +94,9 @@
         <option value="10">October</option>
         <option value="11">November</option>
         <option value="12">December</option>
-    </select>
+    </select><br><br>
+
+    <label><input type="checkbox" id="highlightMaxMin" checked> Highlight Max/Min Provinces</label>
 </div>
 
 <div id="loading">Loading data...</div>
@@ -143,7 +145,7 @@ async function loadData() {
     }
 }
 
-/* -------------------- DRAW CHOROPLETH WITH MAX/MIN HIGHLIGHT -------------------- */
+/* -------------------- DRAW CHOROPLETH WITH OPTIONAL MAX/MIN -------------------- */
 function drawMap(field) {
 
     if (layer) map.removeLayer(layer);
@@ -158,10 +160,14 @@ function drawMap(field) {
         v > -20 ? '#FEB24C' :
         '#FFEDA0';
 
-    // Find max/min for the selected field
-    const values = Object.values(violenceData).map(d => d[field]).filter(v => v != null);
-    const maxValue = Math.max(...values);
-    const minValue = Math.min(...values);
+    // Check if highlighting is enabled
+    const highlight = document.getElementById('highlightMaxMin').checked;
+    let maxValue, minValue;
+    if(highlight){
+        const values = Object.values(violenceData).map(d => d[field]).filter(v => v != null);
+        maxValue = Math.max(...values);
+        minValue = Math.min(...values);
+    }
 
     layer = L.geoJSON(geoData, {
         style: f => {
@@ -172,13 +178,14 @@ function drawMap(field) {
             let borderColor = 'white';
             let weight = 1;
 
-            // Highlight max/min provinces
-            if(d?.[field] === maxValue) {
-                borderColor = 'gold';
-                weight = 3;
-            } else if(d?.[field] === minValue) {
-                borderColor = 'black';
-                weight = 3;
+            if(highlight){
+                if(d?.[field] === maxValue){
+                    borderColor = 'gold';
+                    weight = 3;
+                } else if(d?.[field] === minValue){
+                    borderColor = 'black';
+                    weight = 3;
+                }
             }
 
             return {
@@ -239,7 +246,6 @@ const absBins = [
     { color: '#FC4E2A', label: '0 – 20' }
 ];
 
-// Function to update legend per field
 function updateLegend(field) {
     const div = document.querySelector(".legend");
     if (!div) return;
@@ -261,6 +267,10 @@ function updateLegend(field) {
 document.getElementById('fieldSelect').addEventListener('change', loadData);
 document.getElementById('yearSelect').addEventListener('change', loadData);
 document.getElementById('monthSelect').addEventListener('change', loadData);
+document.getElementById('highlightMaxMin').addEventListener('change', () => {
+    const field = document.getElementById('fieldSelect').value;
+    drawMap(field); // redraw map when checkbox toggled
+});
 
 /* -------------------- INIT -------------------- */
 (async function init() {
