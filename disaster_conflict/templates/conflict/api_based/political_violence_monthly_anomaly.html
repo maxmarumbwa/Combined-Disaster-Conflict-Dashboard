@@ -14,7 +14,7 @@
         #controls {
             position: absolute;
             top: 10px;
-            left: 10px;
+            right: 10px;
             z-index: 1000;
             background: white;
             padding: 10px;
@@ -32,6 +32,24 @@
             border-radius: 6px;
             z-index: 2000;
         }
+        .legend {
+    background: white;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 18px;
+    color: #555;
+}
+
+.legend i {
+    width: 14px;
+    height: 14px;
+    float: left;
+    margin-right: 6px;
+    opacity: 0.9;
+}
+
+
+        
     </style>
 </head>
 
@@ -51,8 +69,19 @@
     <label>Year</label><br>
     <select id="yearSelect">
         <option value="2001" selected>2001</option>
-        <option value="2000">2000</option>
-        <option value="1999">1999</option>
+        <option value="2002">2002</option>
+        <option value="2003">2003</option>
+        <option value="2004">2004</option>
+        <option value="2005">2005</option>
+        <option value="2006">2006</option>      
+        <option value="2007">2007</option>
+        <option value="2008">2008</option>
+        <option value="2009">2009</option>
+        <option value="2010">2010</option>
+        <option value="2011">2011</option>
+        <option value="2012">2012</option>
+        
+        
     </select><br><br>
 
     <label>Month</label><br>
@@ -60,6 +89,16 @@
         <option value="1" selected>January</option>
         <option value="2">February</option>
         <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>      
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>    
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+
     </select>
 </div>
 
@@ -79,7 +118,7 @@ let layer;
 
 /* -------------------- LOAD GEOJSON -------------------- */
 async function loadGeoJSON() {
-    const res = await fetch("{% static 'data/geojson/a.geojson' %}");
+    const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
     geoData = await res.json();
 }
 
@@ -127,7 +166,7 @@ function drawMap(field) {
 
     layer = L.geoJSON(geoData, {
         style: f => {
-            const province = f.properties.shapeName;
+            const province = f.properties.shapename2;
             const d = violenceData[province];
 
             return {
@@ -138,7 +177,7 @@ function drawMap(field) {
             };
         },
         onEachFeature: (f, l) => {
-            const province = f.properties.shapeName;
+            const province = f.properties.shapename2;
             const d = violenceData[province];
 
             l.bindPopup(d
@@ -151,7 +190,31 @@ function drawMap(field) {
     }).addTo(map);
 
     map.fitBounds(layer.getBounds());
+
+ 
 }
+
+   // Legend 
+    const legend = L.control({ position: "bottomright" });
+
+legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "legend");
+
+    div.innerHTML = `
+        <strong>Anomaly</strong><br>
+        <i style="background:#800026"></i> > 50<br>
+        <i style="background:#BD0026"></i> 20 – 50<br>
+        <i style="background:#E31A1C"></i> 10 – 20<br>
+        <i style="background:#FC4E2A"></i> 0 – 10<br>
+        <i style="background:#FD8D3C"></i> -10 – 0<br>
+        <i style="background:#FEB24C"></i> -20 – -10<br>
+        <i style="background:#FFEDA0"></i> ≤ -20
+    `;
+
+    return div;
+};
+
+legend.addTo(map);
 
 /* -------------------- EVENTS -------------------- */
 document.getElementById('fieldSelect').addEventListener('change', loadData);
