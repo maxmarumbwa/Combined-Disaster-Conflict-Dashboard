@@ -32,24 +32,23 @@
             border-radius: 6px;
             z-index: 2000;
         }
+
+        /* Legend style */
         .legend {
-    background: white;
-    padding: 6px 8px;
-    font-size: 12px;
-    line-height: 18px;
-    color: #555;
-}
+            background: white;
+            padding: 6px 8px;
+            font-size: 12px;
+            line-height: 18px;
+            color: #555;
+        }
 
-.legend i {
-    width: 14px;
-    height: 14px;
-    float: left;
-    margin-right: 6px;
-    opacity: 0.9;
-}
-
-
-        
+        .legend i {
+            width: 14px;
+            height: 14px;
+            float: left;
+            margin-right: 6px;
+            opacity: 0.9;
+        }
     </style>
 </head>
 
@@ -80,8 +79,6 @@
         <option value="2010">2010</option>
         <option value="2011">2011</option>
         <option value="2012">2012</option>
-        
-        
     </select><br><br>
 
     <label>Month</label><br>
@@ -98,7 +95,6 @@
         <option value="10">October</option>
         <option value="11">November</option>
         <option value="12">December</option>
-
     </select>
 </div>
 
@@ -151,7 +147,6 @@ async function loadData() {
 
 /* -------------------- DRAW CHOROPLETH -------------------- */
 function drawMap(field) {
-
     if (layer) map.removeLayer(layer);
 
     const getColor = v =>
@@ -191,30 +186,63 @@ function drawMap(field) {
 
     map.fitBounds(layer.getBounds());
 
- 
+    // Update legend dynamically
+    updateLegend(field);
 }
 
-   // Legend 
-    const legend = L.control({ position: "bottomright" });
-
+/* -------------------- LEGEND -------------------- */
+const legend = L.control({ position: "bottomright" });
 legend.onAdd = function () {
     const div = L.DomUtil.create("div", "legend");
-
-    div.innerHTML = `
-        <strong>Anomaly</strong><br>
-        <i style="background:#800026"></i> > 50<br>
-        <i style="background:#BD0026"></i> 20 – 50<br>
-        <i style="background:#E31A1C"></i> 10 – 20<br>
-        <i style="background:#FC4E2A"></i> 0 – 10<br>
-        <i style="background:#FD8D3C"></i> -10 – 0<br>
-        <i style="background:#FEB24C"></i> -20 – -10<br>
-        <i style="background:#FFEDA0"></i> ≤ -20
-    `;
-
     return div;
 };
-
 legend.addTo(map);
+
+// Define bins for different field types
+const anomalyBins = [
+    { color: '#800026', label: '> 50' },
+    { color: '#BD0026', label: '20 – 50' },
+    { color: '#E31A1C', label: '10 – 20' },
+    { color: '#FC4E2A', label: '0 – 10' },
+    { color: '#FD8D3C', label: '-10 – 0' },
+    { color: '#FEB24C', label: '-20 – -10' },
+    { color: '#FFEDA0', label: '≤ -20' }
+];
+
+const meanBins = [
+    { color: '#800026', label: '> 50' },
+    { color: '#BD0026', label: '20 – 50' },
+    { color: '#E31A1C', label: '10 – 20' },
+    { color: '#FC4E2A', label: '0 – 10' }
+];
+
+const absBins = [
+    { color: '#800026', label: '> 100' },
+    { color: '#BD0026', label: '50 – 100' },
+    { color: '#E31A1C', label: '20 – 50' },
+    { color: '#FC4E2A', label: '0 – 20' }
+];
+
+// Function to update legend per field
+function updateLegend(field) {
+    const div = document.querySelector(".legend");
+    if (!div) return;
+
+    // Determine title
+    let title = field.includes("anomaly") ? "Anomaly" :
+                field.includes("mean") ? "Monthly Mean" :
+                field.charAt(0).toUpperCase() + field.slice(1);
+
+    // Pick bins based on field
+    let bins;
+    if (field.includes("anomaly")) bins = anomalyBins;
+    else if (field.includes("mean")) bins = meanBins;
+    else bins = absBins;
+
+    // Generate legend HTML
+    div.innerHTML = `<strong>${title}</strong><br>` +
+        bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
+}
 
 /* -------------------- EVENTS -------------------- */
 document.getElementById('fieldSelect').addEventListener('change', loadData);
