@@ -122,8 +122,7 @@
         </select><br><br>
     </div>
     <label>Provinces</label><br>
-    <select id="provinceSelect" multiple size="10" style="width:180px;">
-
+    <select id="provinceSelect" multiple size="8" style="width:180px;">
     </select>
     <br><br>
 
@@ -159,40 +158,22 @@
             const select = document.getElementById('provinceSelect');
             select.innerHTML = '';
 
-            const grouped = {};
+            // 1️⃣ Extract province names
+            const provinces = geoData.features.map(
+                f => f.properties.shapename2
+            );
 
-            // 1️⃣ Group provinces by admin_region col
-            geoData.features.forEach(f => {
-                const province = f.properties.shapename2;
-                const admin_region = f.properties.admin_region || 'Other';
-                console.log("Province:", province, "admin_region:", admin_region);
+            // 2️⃣ Sort alphabetically (A → Z)
+            provinces.sort((a, b) => a.localeCompare(b));
 
-                if (!grouped[admin_region]) {
-                    grouped[admin_region] = [];
-                }
-                grouped[admin_region].push(province);
-            });
-
-            // 2️⃣ Sort groups alphabetically
-            Object.keys(grouped).sort().forEach(admin_region => {
-
-                // Sort provinces inside each group
-                grouped[admin_region].sort((a, b) => a.localeCompare(b));
-
-                const optgroup = document.createElement('optgroup');
-                optgroup.label = admin_region;
-
-                grouped[admin_region].forEach(province => {
-                    const opt = document.createElement('option');
-                    opt.value = province;
-                    opt.textContent = province;
-                    optgroup.appendChild(opt);
-                });
-
-                select.appendChild(optgroup);
+            // 3️⃣ Populate dropdown
+            provinces.forEach(province => {
+                const opt = document.createElement('option');
+                opt.value = province;
+                opt.textContent = province;
+                select.appendChild(opt);
             });
         }
-
 
         /* -------------------- LOAD API DATA -------------------- */
         async function loadData() {
