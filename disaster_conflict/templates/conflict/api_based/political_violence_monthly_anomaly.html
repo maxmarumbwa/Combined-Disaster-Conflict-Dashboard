@@ -3,32 +3,33 @@
 {% load static %}
 
 <head>
-    <title>Political Violence Choropleth</title>
+    <title>Political Violence Comparison</title>
 
     <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        #map {
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+
+        #container {
+            display: flex;
             height: 100vh;
         }
 
-        /* TOP RIGHT CONTROLS */
-        #controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
-            border-radius: 6px;
-            font-family: Arial;
-            width: 220px;
+        .map {
+            flex: 1;
+            position: relative;
         }
 
-        /* LEFT RANKING PANEL */
-        #rankingPanel {
+        /* CONTROLS */
+        #controls {
             position: absolute;
             top: 10px;
             left: 10px;
@@ -36,36 +37,6 @@
             background: white;
             padding: 10px;
             border-radius: 6px;
-            font-family: Arial;
-            width: 250px;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        #rankingPanel h3 {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-
-        #rankingPanel ul {
-            padding-left: 18px;
-            margin-top: 5px;
-        }
-
-        #rankingPanel li {
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 15px;
-            border-radius: 6px;
-            z-index: 2000;
         }
 
         /* LEGEND */
@@ -94,25 +65,8 @@
 
 <body>
 
-    <!-- LEFT PANEL -->
-    <div id="rankingPanel">
-        <h3>Top 5 Provinces</h3>
-        <ul id="topList"></ul>
-
-        <h3>Bottom 5 Provinces</h3>
-        <ul id="bottomList"></ul>
-
-        <label>Top N Provinces</label><br>
-        <input type="number" id="topN" value="5" min="1" style="width:50px;"><br><br>
-
-        <label>Bottom N Provinces</label><br>
-        <input type="number" id="bottomN" value="5" min="1" style="width:50px;"><br><br>
-
-    </div>
-
-    <!-- RIGHT CONTROLS -->
     <div id="controls">
-        <label>Field</label><br>
+        <label>Field:</label>
         <select id="fieldSelect">
             <option value="fatalities">Fatalities</option>
             <option value="events">Events</option>
@@ -122,101 +76,102 @@
             <option value="events_anomaly">Events Anomaly</option>
         </select><br><br>
 
-        <label>Year</label><br>
-        <select id="yearSelect">
+        <label>Left Map - Year:</label>
+        <select id="yearLeft">
             <option value="2001" selected>2001</option>
             <option value="2002">2002</option>
             <option value="2003">2003</option>
             <option value="2004">2004</option>
-            <option value="2005">2005</option>
-            <option value="2006">2006</option>
-            <option value="2007">2007</option>
-            <option value="2008">2008</option>
-            <option value="2009">2009</option>
-            <option value="2010">2010</option>
-            <option value="2011">2011</option>
-            <option value="2012">2012</option>
+        </select><br>
+        <label>Month:</label>
+        <select id="monthLeft">
+            <option value="1" selected>Jan</option>
+            <option value="2">Feb</option>
+            <option value="3">Mar</option>
+            <option value="4">Apr</option>
         </select><br><br>
 
-        <label>Month</label><br>
-        <select id="monthSelect">
-            <option value="1" selected>January</option>
-            <option value="2">February</option>
-            <option value="3">March</option>
-            <option value="4">April</option>
-            <option value="5">May</option>
-            <option value="6">June</option>
-            <option value="7">July</option>
-            <option value="8">August</option>
-            <option value="9">September</option>
-            <option value="10">October</option>
-            <option value="11">November</option>
-            <option value="12">December</option>
+        <label>Right Map - Year:</label>
+        <select id="yearRight">
+            <option value="2001">2001</option>
+            <option value="2002" selected>2002</option>
+            <option value="2003">2003</option>
+            <option value="2004">2004</option>
+        </select><br>
+        <label>Month:</label>
+        <select id="monthRight">
+            <option value="1">Jan</option>
+            <option value="2" selected>Feb</option>
+            <option value="3">Mar</option>
+            <option value="4">Apr</option>
         </select>
     </div>
 
-    <div id="loading">Loading data...</div>
-    <div id="map"></div>
+    <div id="container">
+        <div id="mapLeft" class="map"></div>
+        <div id="mapRight" class="map"></div>
+    </div>
 
     <script>
-        /* ---------------- MAP SETUP ---------------- */
-        var map = L.map('map').setView([-4.0, 23.6], 5);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
         var geoData = null;
-        var violenceData = {};
-        var layer = null;
 
-        /* ---------------- LOAD GEOJSON ---------------- */
-        function loadGeoJSON() {
-            return fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}")
-                .then(function (response) { return response.json(); })
-                .then(function (data) { geoData = data; });
+        // Create two maps
+        var mapLeft = L.map('mapLeft').setView([-4.0, 23.6], 5);
+        var mapRight = L.map('mapRight').setView([-4.0, 23.6], 5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapLeft);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRight);
+
+        var layerLeft = null;
+        var layerRight = null;
+
+        // Legend for both maps
+        var legendLeft = L.control({ position: 'bottomright' });
+        var legendRight = L.control({ position: 'bottomright' });
+
+        legendLeft.onAdd = function () {
+            var div = L.DomUtil.create('div', 'legend');
+            return div;
+        };
+        legendRight.onAdd = function () {
+            var div = L.DomUtil.create('div', 'legend');
+            return div;
+        };
+
+        legendLeft.addTo(mapLeft);
+        legendRight.addTo(mapRight);
+
+        // Load GeoJSON
+        fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}")
+            .then(res => res.json())
+            .then(data => { geoData = data; drawAllMaps(); });
+
+        function getColor(value) {
+            if (value == null) return '#ccc';
+            if (value > 50) return '#800026';
+            if (value > 20) return '#BD0026';
+            if (value > 10) return '#E31A1C';
+            if (value > 0) return '#FC4E2A';
+            if (value > -10) return '#FD8D3C';
+            if (value > -20) return '#FEB24C';
+            return '#FFEDA0';
         }
 
-        /* ---------------- LOAD API DATA ---------------- */
-        function loadData() {
-            var year = document.getElementById('yearSelect').value;
-            var month = document.getElementById('monthSelect').value;
-            var field = document.getElementById('fieldSelect').value;
-
-            document.getElementById('loading').style.display = 'block';
-
-            fetch("http://localhost:8000/api/political_violence/monthly_anomaly/?year=" + year + "&month=" + month)
-                .then(function (response) { return response.json(); })
-                .then(function (apiData) {
-                    violenceData = {};
-                    for (var i = 0; i < apiData.length; i++) {
-                        violenceData[apiData[i].province] = apiData[i];
-                    }
-                    document.getElementById('loading').style.display = 'none';
-
-                    drawMap(field);
-                    updateRankingPanel(field);
-                    updateLegend(field);
+        function fetchData(year, month) {
+            return fetch(`http://localhost:8000/api/political_violence/monthly_anomaly/?year=${year}&month=${month}`)
+                .then(res => res.json())
+                .then(data => {
+                    var dict = {};
+                    data.forEach(d => { dict[d.province] = d; });
+                    return dict;
                 });
         }
 
-        /* ---------------- DRAW MAP ---------------- */
-        function drawMap(field) {
-            if (layer) { map.removeLayer(layer); }
-
-            function getColor(value) {
-                if (value == null) return '#ccc';
-                if (value > 50) return '#800026';
-                if (value > 20) return '#BD0026';
-                if (value > 10) return '#E31A1C';
-                if (value > 0) return '#FC4E2A';
-                if (value > -10) return '#FD8D3C';
-                if (value > -20) return '#FEB24C';
-                return '#FFEDA0';
-            }
-
-            layer = L.geoJSON(geoData, {
+        function drawMap(map, layerVar, data, field) {
+            if (layerVar) map.removeLayer(layerVar);
+            layerVar = L.geoJSON(geoData, {
                 style: function (feature) {
-                    var province = feature.properties.shapename2;
-                    var record = violenceData[province];
+                    var record = data[feature.properties.shapename2];
                     return {
                         fillColor: record ? getColor(record[field]) : '#ccc',
                         weight: 1,
@@ -225,71 +180,19 @@
                     };
                 },
                 onEachFeature: function (feature, layer) {
-                    var province = feature.properties.shapename2;
-                    var record = violenceData[province];
-                    var popupContent = "<b>" + province + "</b><br>";
-                    if (record) {
-                        popupContent += field + ": " + record[field] + "<br>" +
-                            "Fatalities: " + record.fatalities + "<br>" +
-                            "Events: " + record.events;
-                    } else {
-                        popupContent += "No data";
-                    }
-                    layer.bindPopup(popupContent);
+                    var record = data[feature.properties.shapename2];
+                    var popup = "<b>" + feature.properties.shapename2 + "</b><br>";
+                    if (record) popup += field + ": " + record[field] + "<br>Fatalities: " + record.fatalities + "<br>Events: " + record.events;
+                    else popup += "No data";
+                    layer.bindPopup(popup);
                 }
             }).addTo(map);
-
-            map.fitBounds(layer.getBounds());
+            map.fitBounds(layerVar.getBounds());
+            return layerVar;
         }
 
-        /* ---------------- RANKING PANEL ---------------- */
-        function updateRankingPanel(field) {
-            var topN = parseInt(document.getElementById('topN').value) || 5;
-            var bottomN = parseInt(document.getElementById('bottomN').value) || 5;
-
-            var records = [];
-            for (var province in violenceData) {
-                var value = violenceData[province][field];
-                if (value !== null && value !== undefined) {
-                    records.push({ province: province, value: value });
-                }
-            }
-
-            records.sort(function (a, b) { return b.value - a.value; });
-
-            var topList = document.getElementById('topList');
-            var bottomList = document.getElementById('bottomList');
-
-            topList.innerHTML = '';
-            bottomList.innerHTML = '';
-
-            for (var i = 0; i < topN && i < records.length; i++) {
-                var li = document.createElement('li');
-                li.textContent = records[i].province + ': ' + records[i].value;
-                topList.appendChild(li);
-            }
-
-            for (var j = records.length - 1; j >= records.length - bottomN && j >= 0; j--) {
-                var li2 = document.createElement('li');
-                li2.textContent = records[j].province + ': ' + records[j].value;
-                bottomList.appendChild(li2);
-            }
-        }
-
-        /* ---------------- LEGEND ---------------- */
-        var legend = L.control({ position: 'bottomright' });
-
-        legend.onAdd = function (map) {
-            var div = L.DomUtil.create('div', 'legend');
-            return div;
-        };
-
-        legend.addTo(map);
-
-        function updateLegend(field) {
-            var div = document.querySelector(".legend");
-            if (!div) return;
-
+        function updateLegend(divClass, field) {
+            var div = document.querySelector(divClass);
             var bins = [
                 { color: '#800026', label: '> 50' },
                 { color: '#BD0026', label: '20 – 50' },
@@ -299,32 +202,30 @@
                 { color: '#FEB24C', label: '-20 – -10' },
                 { color: '#FFEDA0', label: '≤ -20' }
             ];
-
             div.innerHTML = "<strong>" + field.replace(/_/g, ' ').toUpperCase() + "</strong><br>" +
-                bins.map(function (b) {
-                    return "<i style='background:" + b.color + "'></i> " + b.label + "<br>";
-                }).join('');
+                bins.map(b => `<i style='background:${b.color}'></i> ${b.label}<br>`).join('');
         }
 
-        /* ---------------- EVENTS ---------------- */
-        document.getElementById('fieldSelect').addEventListener('change', loadData);
-        document.getElementById('yearSelect').addEventListener('change', loadData);
-        document.getElementById('monthSelect').addEventListener('change', loadData);
-
-        document.getElementById('topN').addEventListener('change', function () {
+        function drawAllMaps() {
             var field = document.getElementById('fieldSelect').value;
-            updateRankingPanel(field);
+            var yearL = document.getElementById('yearLeft').value;
+            var monthL = document.getElementById('monthLeft').value;
+            var yearR = document.getElementById('yearRight').value;
+            var monthR = document.getElementById('monthRight').value;
+
+            Promise.all([fetchData(yearL, monthL), fetchData(yearR, monthR)]).then(results => {
+                layerLeft = drawMap(mapLeft, layerLeft, results[0], field);
+                layerRight = drawMap(mapRight, layerRight, results[1], field);
+                updateLegend("#mapLeft .legend", field);
+                updateLegend("#mapRight .legend", field);
+            });
+        }
+
+        // Event listeners
+        ["fieldSelect", "yearLeft", "monthLeft", "yearRight", "monthRight"].forEach(id => {
+            document.getElementById(id).addEventListener("change", drawAllMaps);
         });
 
-        document.getElementById('bottomN').addEventListener('change', function () {
-            var field = document.getElementById('fieldSelect').value;
-            updateRankingPanel(field);
-        });
-
-        /* ---------------- INIT ---------------- */
-        loadGeoJSON().then(function () {
-            loadData();
-        });
     </script>
 
 </body>
