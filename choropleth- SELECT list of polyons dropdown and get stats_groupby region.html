@@ -121,12 +121,10 @@
             <option value="12">December</option>
         </select><br><br>
     </div>
-    <label>Admin Region</label><br>
-    <select id="regionSelect" multiple size="8" style="width:180px;">
-        <!-- Populated dynamically from geojson -->
-    </select>
-    <br><br>
+    <label>Provinces</label><br>
+    <select id="provinceSelect" multiple size="10" style="width:180px;">
 
+    </select>
     <br><br>
 
     <button id="generateReportBtn">Generate Report</button>
@@ -146,49 +144,55 @@
         let violenceData = {};
         let layer;
 
-        // Selection store
+        // NEW: selection store
         const selectedProvinces = new Set();
-        const aggStatsDiv = document.getElementById('aggStats');
 
-        // Lookup: admin_region -> provinces
-        let provincesByRegion = {};
-        let allRegions = [];
+        const aggStatsDiv = document.getElementById('aggStats');
 
         /* -------------------- LOAD GEOJSON -------------------- */
         async function loadGeoJSON() {
             const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
             geoData = await res.json();
         }
-
-        /* -------------------- POPULATE REGION DROPDOWN -------------------- */
-        function populateRegionList() {
-            const select = document.getElementById('regionSelect');
+        // populate province list from the loaded geojson
+        function populateProvinceList() {
+            const select = document.getElementById('provinceSelect');
             select.innerHTML = '';
-            provincesByRegion = {};
-            allRegions = [];
 
-            // Group provinces by admin_region
+            const grouped = {};
+
+            // 1️⃣ Group provinces by admin_region col
             geoData.features.forEach(f => {
                 const province = f.properties.shapename2;
                 const admin_region = f.properties.admin_region || 'Other';
+                console.log("Province:", province, "admin_region:", admin_region);
 
-                if (!provincesByRegion[admin_region]) {
-                    provincesByRegion[admin_region] = [];
-                    allRegions.push(admin_region);
+                if (!grouped[admin_region]) {
+                    grouped[admin_region] = [];
                 }
-                provincesByRegion[admin_region].push(province);
+                grouped[admin_region].push(province);
             });
 
-            // Sort regions alphabetically
-            allRegions.sort();
+            // 2️⃣ Sort groups alphabetically
+            Object.keys(grouped).sort().forEach(admin_region => {
 
-            allRegions.forEach(region => {
-                const opt = document.createElement('option');
-                opt.value = region;
-                opt.textContent = region;
-                select.appendChild(opt);
+                // Sort provinces inside each group
+                grouped[admin_region].sort((a, b) => a.localeCompare(b));
+
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = admin_region;
+
+                grouped[admin_region].forEach(province => {
+                    const opt = document.createElement('option');
+                    opt.value = province;
+                    opt.textContent = province;
+                    optgroup.appendChild(opt);
+                });
+
+                select.appendChild(optgroup);
             });
         }
+
 
         /* -------------------- LOAD API DATA -------------------- */
         async function loadData() {
@@ -206,8 +210,10 @@
                     violenceData[item.province] = item;
                 });
 
+                // Clear selection on data change
                 selectedProvinces.clear();
                 updateAggStats();
+
                 drawMap();
 
             } catch (err) {
@@ -215,7 +221,7 @@
             }
         }
 
-        /* -------------------- DRAW MAP -------------------- */
+        /* -------------------- DRAW MAP (NO COLOR) -------------------- */
         function drawMap() {
             if (layer) map.removeLayer(layer);
 
@@ -231,11 +237,12 @@
                         fillOpacity: 0.2
                     };
                 },
+
                 onEachFeature: (feature, leafletLayer) => {
                     const province = feature.properties.shapename2;
                     const d = violenceData[province];
 
-                    // Popup
+                    // Popup (unchanged)
                     if (d) {
                         let popupContent = `<b>${province}</b><br>`;
                         for (const key in d) {
@@ -245,6 +252,22 @@
                     } else {
                         leafletLayer.bindPopup(`<b>${province}</b><br>No data`);
                     }
+
+                    // NEW: Ctrl-click selection
+                    leafletLayer.on('click', e => {
+                        if (!e.originalEvent.ctrlKey) return;
+
+                        L.DomEvent.stopPropagation(e);
+
+                        if (selectedProvinces.has(province)) {
+                            selectedProvinces.delete(province);
+                        } else {
+                            selectedProvinces.add(province);
+                        }
+
+                        drawMap();
+                        updateAggStats();
+                    });
                 }
             }).addTo(map);
 
@@ -253,71 +276,55 @@
 
         /* -------------------- AGGREGATED STATS -------------------- */
         function updateAggStats() {
-            const regionStats = {};
+            let totalEvents = 0;
+            let totalFatalities = 0;
 
             selectedProvinces.forEach(province => {
                 const d = violenceData[province];
-                if (!d) return;
-
-                const region = d.admin_region || 'Unknown';
-
-                if (!regionStats[region]) {
-                    regionStats[region] = { events: 0, fatalities: 0, provinces: 0 };
+                if (d) {
+                    totalEvents += Number(d.events || 0);
+                    totalFatalities += Number(d.fatalities || 0);
                 }
-
-                regionStats[region].events += Number(d.events || 0);
-                regionStats[region].fatalities += Number(d.fatalities || 0);
-                regionStats[region].provinces += 1;
             });
 
             if (selectedProvinces.size === 0) {
-                aggStatsDiv.innerHTML = `<i>No provinces selected</i>`;
+                aggStatsDiv.innerHTML = `<i>No provinces selected (Ctrl + click)</i>`;
                 return;
             }
 
-            let html = `
-        <h4 style="margin:0 0 5px 0;">Aggregated Statistics (Admin Region)</h4>
-        <hr style="margin:4px 0">
-        <b>Selected Provinces:</b> ${selectedProvinces.size}<br><br>
-    `;
-
-            Object.keys(regionStats).sort().forEach(region => {
-                const r = regionStats[region];
-                html += `
-            <b>${region}</b><br>
-            Provinces: ${r.provinces}<br>
-            Events: ${r.events}<br>
-            Fatalities: ${r.fatalities}<br>
+            aggStatsDiv.innerHTML = `
+            <h4 style="margin:0 0 5px 0;">Aggregated Statistics</h4>
             <hr style="margin:4px 0">
+            <b>Selected Provinces:</b> ${selectedProvinces.size}<br>
+            <b>Total Events:</b> ${totalEvents}<br>
+            <b>Total Fatalities:</b> ${totalFatalities}
         `;
-            });
-
-            aggStatsDiv.innerHTML = html;
         }
 
         /* -------------------- EVENTS -------------------- */
         document.getElementById('yearSelect').addEventListener('change', loadData);
         document.getElementById('monthSelect').addEventListener('change', loadData);
 
-        // Region selection → select all provinces in that region
-        document.getElementById('regionSelect').addEventListener('change', e => {
+        document.getElementById('provinceSelect').addEventListener('change', e => {
             selectedProvinces.clear();
 
             Array.from(e.target.selectedOptions).forEach(opt => {
-                const region = opt.value;
-                provincesByRegion[region].forEach(p => selectedProvinces.add(p));
+                selectedProvinces.add(opt.value);
             });
 
             drawMap();
             updateAggStats();
         });
 
+
+
         /* -------------------- INIT -------------------- */
         (async function init() {
             await loadGeoJSON();
-            populateRegionList();
+            populateProvinceList();  // add the population under init
             loadData();
         })();
+
     </script>
 
 
