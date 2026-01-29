@@ -3,54 +3,52 @@
 {% load static %}
 
 <head>
-    <title>Political Violence Comparison</title>
+    <title>Political Violence Period Comparison</title>
 
-    <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
-        body,
-        html {
+        html,
+        body {
             margin: 0;
             padding: 0;
             height: 100%;
-            font-family: Arial, sans-serif;
+            font-family: Arial;
         }
 
-        #container {
-            display: flex;
-            height: 100vh;
-        }
-
-        .map {
-            flex: 1;
-            position: relative;
-        }
-
-        /* CONTROLS */
         #controls {
             position: absolute;
             top: 10px;
             left: 10px;
-            z-index: 1000;
+            z-index: 3000;
             background: white;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
+            width: 260px;
+            font-size: 13px;
         }
 
-        /* LEGEND */
+        #container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            height: 100vh;
+        }
+
+        .map {
+            position: relative;
+        }
+
         .legend {
-            background: white;
-            padding: 6px 8px;
-            font-size: 12px;
-            line-height: 18px;
-            color: #555;
             position: absolute;
             bottom: 10px;
             right: 10px;
+            background: white;
+            padding: 8px;
+            font-size: 12px;
             border-radius: 6px;
-            z-index: 1000;
+            line-height: 16px;
         }
 
         .legend i {
@@ -66,194 +64,318 @@
 <body>
 
     <div id="controls">
-        <label>Field:</label>
+        <strong>Field</strong><br>
         <select id="fieldSelect">
             <option value="fatalities">Fatalities</option>
             <option value="events">Events</option>
-            <option value="fatalities_monthly_mean">Fatalities Monthly Mean</option>
-            <option value="events_monthly_mean">Events Monthly Mean</option>
             <option value="fatalities_anomaly" selected>Fatalities Anomaly</option>
             <option value="events_anomaly">Events Anomaly</option>
-        </select><br><br>
+        </select>
 
-        <label>Left Map - Year:</label>
-        <select id="yearLeft">
-            <option value="2001" selected>2001</option>
+        <hr>
+
+        <strong>START PERIOD</strong><br>
+        Year:
+        <select id="yearStart">
+            <option value="2001">2001</option>
             <option value="2002">2002</option>
             <option value="2003">2003</option>
-            <option value="2004">2004</option>
-        </select><br>
-        <label>Month:</label>
-        <select id="monthLeft">
-            <option value="1" selected>Jan</option>
+        </select>
+        Month:
+        <select id="monthStart">
+            <option value="1">Jan</option>
             <option value="2">Feb</option>
             <option value="3">Mar</option>
-            <option value="4">Apr</option>
-        </select><br><br>
+        </select>
 
-        <label>Right Map - Year:</label>
-        <select id="yearRight">
+        <hr>
+
+        <strong>END PERIOD</strong><br>
+        Year:
+        <select id="yearEnd">
             <option value="2001">2001</option>
             <option value="2002" selected>2002</option>
             <option value="2003">2003</option>
-            <option value="2004">2004</option>
-        </select><br>
-        <label>Month:</label>
-        <select id="monthRight">
+        </select>
+        Month:
+        <select id="monthEnd">
             <option value="1">Jan</option>
             <option value="2" selected>Feb</option>
             <option value="3">Mar</option>
-            <option value="4">Apr</option>
         </select>
+
+        <hr>
+
+        <strong>DIFFERENCE MAPS</strong><br>
+        <em>Absolute Difference:</em><br>
+        <code>End − Start</code><br><br>
+
+        <em>Percentage Difference:</em><br>
+        <code>((End − Start) / |Start|) × 100</code>
     </div>
 
     <div id="container">
-        <div id="mapLeft" class="map"></div>
-        <div id="mapRight" class="map"></div>
+        <div id="mapStart" class="map"></div>
+        <div id="mapEnd" class="map"></div>
+        <div id="mapDiff" class="map"></div>
+        <div id="mapPct" class="map"></div>
     </div>
 
     <script>
+        /* ================= MAP SETUP ================= */
 
-        var geoData = null;
+        var maps = {
+            start: L.map('mapStart').setView([-4, 23.6], 5),
+            end: L.map('mapEnd').setView([-4, 23.6], 5),
+            diff: L.map('mapDiff').setView([-4, 23.6], 5),
+            pct: L.map('mapPct').setView([-4, 23.6], 5)
+        };
 
-        // Create two maps
-        var mapLeft = L.map('mapLeft').setView([-4.0, 23.6], 5);
-        var mapRight = L.map('mapRight').setView([-4.0, 23.6], 5);
+        for (var k in maps) {
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(maps[k]);
+        }
 
-        // Zoom map sync logic
+        /* ================= SYNC ZOOM ================= */
+
         var syncing = false;
 
-        function syncMaps(sourceMap, targetMap) {
-            if (syncing) {
-                return;
-            }
-
+        function syncMaps(source) {
+            if (syncing) return;
             syncing = true;
 
-            targetMap.setView(
-                sourceMap.getCenter(),
-                sourceMap.getZoom(),
-                { animate: false }
-            );
-
+            for (var k in maps) {
+                if (maps[k] !== source) {
+                    maps[k].setView(
+                        source.getCenter(),
+                        source.getZoom(),
+                        { animate: false }
+                    );
+                }
+            }
             syncing = false;
         }
 
-        mapLeft.on('moveend', function () {
-            syncMaps(mapLeft, mapRight);
-        });
+        for (var k in maps) {
+            maps[k].on('moveend', function (e) {
+                syncMaps(e.target);
+            });
+        }
 
-        mapRight.on('moveend', function () {
-            syncMaps(mapRight, mapLeft);
-        });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapLeft);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRight);
+        /* ================= LEGEND CONTROLS ================= */
 
-        var layerLeft = null;
-        var layerRight = null;
+        var legendStart, legendEnd, legendDiff, legendPct;
 
-        // Legend for both maps
-        var legendLeft = L.control({ position: 'bottomright' });
-        var legendRight = L.control({ position: 'bottomright' });
+        /* ---- Create dynamic legend HTML for top maps ---- */
+        function getNormalLegendHTML(field) {
 
-        legendLeft.onAdd = function () {
-            var div = L.DomUtil.create('div', 'legend');
-            return div;
-        };
-        legendRight.onAdd = function () {
-            var div = L.DomUtil.create('div', 'legend');
-            return div;
-        };
+            var title = "Magnitude (Absolute Value)";
 
-        legendLeft.addTo(mapLeft);
-        legendRight.addTo(mapRight);
+            if (field === "fatalities") title = "Fatalities (Absolute)";
+            if (field === "events") title = "Events (Absolute)";
+            if (field.indexOf("anomaly") !== -1)
+                title = "Anomaly Magnitude (|value|)";
 
-        // Load GeoJSON
-        fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}")
-            .then(res => res.json())
-            .then(data => { geoData = data; drawAllMaps(); });
+            return `
+        <strong>${title}</strong><br>
+        <i style="background:#800026"></i> > 50<br>
+        <i style="background:#BD0026"></i> 20 – 50<br>
+        <i style="background:#E31A1C"></i> 10 – 20<br>
+        <i style="background:#FC4E2A"></i> 5 – 10<br>
+        <i style="background:#FD8D3C"></i> 1 – 5<br>
+        <i style="background:#FFEDA0"></i> 0 – 1
+    `;
+        }
 
-        function getColor(value) {
+
+        /* ---- Difference legend (static) ---- */
+        function getDifferenceLegendHTML(title) {
+            return `
+        <strong>${title}</strong><br>
+        <i style="background:#08306b"></i> Large Increase<br>
+        <i style="background:#6baed6"></i> Small Increase<br>
+        <i style="background:#ffffff"></i> No Change<br>
+        <i style="background:#fb6a4a"></i> Small Decrease<br>
+        <i style="background:#a50f15"></i> Large Decrease
+    `;
+        }
+
+        /* ---- Add / replace legend ---- */
+        function setLegend(map, legendVar, html) {
+
+            if (legendVar) {
+                map.removeControl(legendVar);
+            }
+
+            var legend = L.control({ position: 'bottomright' });
+
+            legend.onAdd = function () {
+                var div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = html;
+                return div;
+            };
+
+            legend.addTo(map);
+            return legend;
+        }
+
+        /* ================= COLORS ================= */
+
+        function normalColor(value) {
+
             if (value == null) return '#ccc';
-            if (value > 50) return '#800026';
-            if (value > 20) return '#BD0026';
-            if (value > 10) return '#E31A1C';
-            if (value > 0) return '#FC4E2A';
-            if (value > -10) return '#FD8D3C';
-            if (value > -20) return '#FEB24C';
+
+            var v = Math.abs(value);   // ✅ ABSOLUTE VALUE
+
+            if (v > 50) return '#800026';
+            if (v > 20) return '#BD0026';
+            if (v > 10) return '#E31A1C';
+            if (v > 5) return '#FC4E2A';
+            if (v > 1) return '#FD8D3C';
             return '#FFEDA0';
         }
 
-        function fetchData(year, month) {
-            return fetch(`http://localhost:8000/api/political_violence/monthly_anomaly/?year=${year}&month=${month}`)
-                .then(res => res.json())
-                .then(data => {
-                    var dict = {};
-                    data.forEach(d => { dict[d.province] = d; });
-                    return dict;
+
+        function diffColor(v) {
+            if (v == null) return '#ccc';
+            if (v > 50) return '#08306b';
+            if (v > 0) return '#6baed6';
+            if (v === 0) return '#ffffff';
+            if (v > -20) return '#fb6a4a';
+            return '#a50f15';
+        }
+
+        /* ================= DATA ================= */
+
+        var geoData;
+        var layers = {};
+
+        function fetchData(year, month, callback) {
+            fetch(
+                "http://localhost:8000/api/political_violence/monthly_anomaly/?year=" +
+                year + "&month=" + month
+            )
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+
+                    var out = {};
+                    data.forEach(function (row) {
+                        out[row.province] = row;
+                    });
+
+                    callback(out);
                 });
         }
 
-        function drawMap(map, layerVar, data, field) {
-            if (layerVar) map.removeLayer(layerVar);
-            layerVar = L.geoJSON(geoData, {
+        function drawLayer(map, oldLayer, data, field, colorFn) {
+
+            if (oldLayer) {
+                map.removeLayer(oldLayer);
+            }
+
+            return L.geoJSON(geoData, {
                 style: function (feature) {
-                    var record = data[feature.properties.shapename2];
+
+                    var rec = data[feature.properties.shapename2];
+                    var value = rec ? rec[field] : null;
+
                     return {
-                        fillColor: record ? getColor(record[field]) : '#ccc',
+                        fillColor: colorFn(value),
                         weight: 1,
                         color: 'white',
                         fillOpacity: 0.7
                     };
-                },
-                onEachFeature: function (feature, layer) {
-                    var record = data[feature.properties.shapename2];
-                    var popup = "<b>" + feature.properties.shapename2 + "</b><br>";
-                    if (record) popup += field + ": " + record[field] + "<br>Fatalities: " + record.fatalities + "<br>Events: " + record.events;
-                    else popup += "No data";
-                    layer.bindPopup(popup);
                 }
             }).addTo(map);
-            map.fitBounds(layerVar.getBounds());
-            return layerVar;
         }
 
-        function updateLegend(divClass, field) {
-            var div = document.querySelector(divClass);
-            var bins = [
-                { color: '#800026', label: '> 50' },
-                { color: '#BD0026', label: '20 – 50' },
-                { color: '#E31A1C', label: '10 – 20' },
-                { color: '#FC4E2A', label: '0 – 10' },
-                { color: '#FD8D3C', label: '-10 – 0' },
-                { color: '#FEB24C', label: '-20 – -10' },
-                { color: '#FFEDA0', label: '≤ -20' }
-            ];
-            div.innerHTML = "<strong>" + field.replace(/_/g, ' ').toUpperCase() + "</strong><br>" +
-                bins.map(b => `<i style='background:${b.color}'></i> ${b.label}<br>`).join('');
-        }
+        /* ================= UPDATE ALL ================= */
 
-        function drawAllMaps() {
-            var field = document.getElementById('fieldSelect').value;
-            var yearL = document.getElementById('yearLeft').value;
-            var monthL = document.getElementById('monthLeft').value;
-            var yearR = document.getElementById('yearRight').value;
-            var monthR = document.getElementById('monthRight').value;
+        function updateAll() {
 
-            Promise.all([fetchData(yearL, monthL), fetchData(yearR, monthR)]).then(results => {
-                layerLeft = drawMap(mapLeft, layerLeft, results[0], field);
-                layerRight = drawMap(mapRight, layerRight, results[1], field);
-                updateLegend("#mapLeft .legend", field);
-                updateLegend("#mapRight .legend", field);
+            var field = fieldSelect.value;
+
+            /* --- Update dynamic legends --- */
+            legendStart = setLegend(
+                maps.start,
+                legendStart,
+                getNormalLegendHTML(field)
+            );
+
+            legendEnd = setLegend(
+                maps.end,
+                legendEnd,
+                getNormalLegendHTML(field)
+            );
+
+            legendDiff = setLegend(
+                maps.diff,
+                legendDiff,
+                getDifferenceLegendHTML("Absolute Difference")
+            );
+
+            legendPct = setLegend(
+                maps.pct,
+                legendPct,
+                getDifferenceLegendHTML("Percentage Difference")
+            );
+
+            fetchData(yearStart.value, monthStart.value, function (startData) {
+
+                fetchData(yearEnd.value, monthEnd.value, function (endData) {
+
+                    var diffData = {};
+                    var pctData = {};
+
+                    for (var p in startData) {
+
+                        if (endData[p]) {
+
+                            var s = startData[p][field];
+                            var e = endData[p][field];
+
+                            diffData[p] = {};
+                            pctData[p] = {};
+
+                            diffData[p][field] = e - s;
+
+                            pctData[p][field] =
+                                (s !== 0) ? ((e - s) / Math.abs(s)) * 100 : null;
+                        }
+                    }
+
+                    layers.start = drawLayer(
+                        maps.start, layers.start, startData, field, normalColor
+                    );
+
+                    layers.end = drawLayer(
+                        maps.end, layers.end, endData, field, normalColor
+                    );
+
+                    layers.diff = drawLayer(
+                        maps.diff, layers.diff, diffData, field, diffColor
+                    );
+
+                    layers.pct = drawLayer(
+                        maps.pct, layers.pct, pctData, field, diffColor
+                    );
+                });
             });
         }
 
-        // Event listeners
-        ["fieldSelect", "yearLeft", "monthLeft", "yearRight", "monthRight"].forEach(id => {
-            document.getElementById(id).addEventListener("change", drawAllMaps);
-        });
+        /* ================= INIT ================= */
 
+        fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}")
+            .then(function (r) { return r.json(); })
+            .then(function (g) {
+                geoData = g;
+                updateAll();
+            });
+
+        document.querySelectorAll("select").forEach(function (el) {
+            el.addEventListener("change", updateAll);
+        });
     </script>
+
 
 </body>
 
