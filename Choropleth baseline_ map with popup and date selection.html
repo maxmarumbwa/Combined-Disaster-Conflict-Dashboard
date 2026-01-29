@@ -137,11 +137,6 @@
         let violenceData = {};
         let layer;
 
-        // NEW: selection store
-        const selectedProvinces = new Set();
-
-        const aggStatsDiv = document.getElementById('aggStats');
-
         /* -------------------- LOAD GEOJSON -------------------- */
         async function loadGeoJSON() {
             const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
@@ -164,10 +159,6 @@
                     violenceData[item.province] = item;
                 });
 
-                // Clear selection on data change
-                selectedProvinces.clear();
-                updateAggStats();
-
                 drawMap();
 
             } catch (err) {
@@ -180,79 +171,29 @@
             if (layer) map.removeLayer(layer);
 
             layer = L.geoJSON(geoData, {
-                style: feature => {
-                    const province = feature.properties.shapename2;
-                    const selected = selectedProvinces.has(province);
-
-                    return {
-                        fillColor: 'grey',
-                        weight: selected ? 3 : 1,
-                        color: selected ? '#ff7800' : 'black',
-                        fillOpacity: 0.2
-                    };
-                },
-
-                onEachFeature: (feature, leafletLayer) => {
-                    const province = feature.properties.shapename2;
+                style: f => ({
+                    fillColor: 'grey', // no choropleth coloring
+                    weight: 1,
+                    color: 'black',
+                    fillOpacity: 0.2
+                }),
+                onEachFeature: (f, l) => {
+                    const province = f.properties.shapename2;
                     const d = violenceData[province];
 
-                    // Popup (unchanged)
                     if (d) {
                         let popupContent = `<b>${province}</b><br>`;
                         for (const key in d) {
                             popupContent += `${key}: ${d[key]}<br>`;
                         }
-                        leafletLayer.bindPopup(popupContent);
+                        l.bindPopup(popupContent);
                     } else {
-                        leafletLayer.bindPopup(`<b>${province}</b><br>No data`);
+                        l.bindPopup(`<b>${province}</b><br>No data`);
                     }
-
-                    // NEW: Ctrl-click selection
-                    leafletLayer.on('click', e => {
-                        if (!e.originalEvent.ctrlKey) return;
-
-                        L.DomEvent.stopPropagation(e);
-
-                        if (selectedProvinces.has(province)) {
-                            selectedProvinces.delete(province);
-                        } else {
-                            selectedProvinces.add(province);
-                        }
-
-                        drawMap();
-                        updateAggStats();
-                    });
                 }
             }).addTo(map);
 
             map.fitBounds(layer.getBounds());
-        }
-
-        /* -------------------- AGGREGATED STATS -------------------- */
-        function updateAggStats() {
-            let totalEvents = 0;
-            let totalFatalities = 0;
-
-            selectedProvinces.forEach(province => {
-                const d = violenceData[province];
-                if (d) {
-                    totalEvents += Number(d.events || 0);
-                    totalFatalities += Number(d.fatalities || 0);
-                }
-            });
-
-            if (selectedProvinces.size === 0) {
-                aggStatsDiv.innerHTML = `<i>No provinces selected (Ctrl + click)</i>`;
-                return;
-            }
-
-            aggStatsDiv.innerHTML = `
-            <h4 style="margin:0 0 5px 0;">Aggregated Statistics</h4>
-            <hr style="margin:4px 0">
-            <b>Selected Provinces:</b> ${selectedProvinces.size}<br>
-            <b>Total Events:</b> ${totalEvents}<br>
-            <b>Total Fatalities:</b> ${totalFatalities}
-        `;
         }
 
         /* -------------------- EVENTS -------------------- */
@@ -265,7 +206,6 @@
             loadData();
         })();
     </script>
-
 
 </body>
 
