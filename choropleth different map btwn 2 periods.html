@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+{% load static %}
+
+<head>
+    <title>Political Violence Comparison</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 2000;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .map {
+            flex: 1;
+            position: relative;
+        }
+
+        .legend {
+            background: white;
+            padding: 6px 8px;
+            font-size: 12px;
+            line-height: 18px;
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            border-radius: 6px;
+            z-index: 1000;
+        }
+
+        .legend i {
+            width: 14px;
+            height: 14px;
+            float: left;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controls">
+        <label>Field</label><br>
+        <select id="fieldSelect">
+            <option value="fatalities">Fatalities</option>
+            <option value="events">Events</option>
+            <option value="fatalities_anomaly" selected>Fatalities Anomaly</option>
+            <option value="events_anomaly">Events Anomaly</option>
+        </select><br><br>
+
+        <strong>LEFT MAP</strong><br>
+        <label>Year</label>
+        <select id="yearLeft">
+            <option value="2001">2001</option>
+            <option value="2002">2002</option>
+            <option value="2003">2003</option>
+        </select>
+        <label>Month</label>
+        <select id="monthLeft">
+            <option value="1">Jan</option>
+            <option value="2">Feb</option>
+            <option value="3">Mar</option>
+        </select><br><br>
+
+        <strong>RIGHT MAP</strong><br>
+        <label>Year</label>
+        <select id="yearRight">
+            <option value="2001">2001</option>
+            <option value="2002" selected>2002</option>
+            <option value="2003">2003</option>
+        </select>
+        <label>Month</label>
+        <select id="monthRight">
+            <option value="1">Jan</option>
+            <option value="2" selected>Feb</option>
+            <option value="3">Mar</option>
+        </select>
+    </div>
+
+    <div id="container">
+        <div id="mapLeft" class="map"></div>
+        <div id="mapDiff" class="map"></div>
+        <div id="mapRight" class="map"></div>
+    </div>
+
+    <script>
+        /* ---------------- MAP SETUP ---------------- */
+
+        var geoData = null;
+        var layerLeft = null;
+        var layerRight = null;
+        var layerDiff = null;
+
+        var mapLeft = L.map('mapLeft').setView([-4, 23.6], 5);
+        var mapRight = L.map('mapRight').setView([-4, 23.6], 5);
+        var mapDiff = L.map('mapDiff').setView([-4, 23.6], 5);
+
+        /* Base tiles */
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapLeft);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRight);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapDiff);
+
+        /* ---------------- SYNC ZOOM & PAN ---------------- */
+
+        var syncing = false;
+
+        function syncMaps(source, targets) {
+            if (syncing) return;
+            syncing = true;
+
+            for (var i = 0; i < targets.length; i++) {
+                targets[i].setView(source.getCenter(), source.getZoom(), { animate: false });
+            }
+
+            syncing = false;
+        }
+
+        mapLeft.on('moveend', function () {
+            syncMaps(mapLeft, [mapRight, mapDiff]);
+        });
+        mapRight.on('moveend', function () {
+            syncMaps(mapRight, [mapLeft, mapDiff]);
+        });
+        mapDiff.on('moveend', function () {
+            syncMaps(mapDiff, [mapLeft, mapRight]);
+        });
+
+        /* ---------------- LEGENDS ---------------- */
+
+        function addLegend(map) {
+            var legend = L.control({ position: 'bottomright' });
+            legend.onAdd = function () {
+                return L.DomUtil.create('div', 'legend');
+            };
+            legend.addTo(map);
+        }
+
+        addLegend(mapLeft);
+        addLegend(mapRight);
+        addLegend(mapDiff);
+
+        /* ---------------- COLOR FUNCTIONS ---------------- */
+
+        function getColor(value) {
+            if (value == null) return '#ccc';
+            if (value > 50) return '#800026';
+            if (value > 20) return '#BD0026';
+            if (value > 10) return '#E31A1C';
+            if (value > 0) return '#FC4E2A';
+            if (value > -10) return '#FD8D3C';
+            if (value > -20) return '#FEB24C';
+            return '#FFEDA0';
+        }
+
+        /* DIFFERENCE MAP COLORS */
+        function getDifferenceColor(value) {
+            if (value == null) return '#ccc';
+
+            if (value > 50) return '#08306b';
+            if (value > 20) return '#2171b5';
+            if (value > 10) return '#4292c6';
+            if (value > 0) return '#6baed6';
+            if (value === 0) return '#ffffff';
+            if (value > -10) return '#fcae91';
+            if (value > -20) return '#fb6a4a';
+            if (value > -50) return '#de2d26';
+            return '#a50f15';
+        }
+
+        /* ---------------- LOAD DATA ---------------- */
+
+        function fetchData(year, month, callback) {
+            fetch("http://localhost:8000/api/political_violence/monthly_anomaly/?year=" + year + "&month=" + month)
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    var dict = {};
+                    for (var i = 0; i < data.length; i++) {
+                        dict[data[i].province] = data[i];
+                    }
+                    callback(dict);
+                });
+        }
+
+        /* ---------------- DRAW MAP ---------------- */
+
+        function drawMap(map, oldLayer, data, field, isDifference) {
+
+            if (oldLayer) {
+                map.removeLayer(oldLayer);
+            }
+
+            var newLayer = L.geoJSON(geoData, {
+                style: function (feature) {
+                    var record = data[feature.properties.shapename2];
+                    var value = record ? record[field] : null;
+
+                    return {
+                        fillColor: isDifference ? getDifferenceColor(value) : getColor(value),
+                        weight: 1,
+                        color: 'white',
+                        fillOpacity: 0.7
+                    };
+                }
+            }).addTo(map);
+
+            map.fitBounds(newLayer.getBounds());
+            return newLayer;
+        }
+
+        /* ---------------- UPDATE LEGENDS ---------------- */
+
+        function updateNormalLegend(mapId, field) {
+            var div = document.querySelector(mapId + " .legend");
+            div.innerHTML =
+                "<strong>" + field.toUpperCase() + "</strong><br>" +
+                "<i style='background:#800026'></i> >50<br>" +
+                "<i style='background:#BD0026'></i> 20–50<br>" +
+                "<i style='background:#E31A1C'></i> 10–20<br>" +
+                "<i style='background:#FC4E2A'></i> 0–10<br>" +
+                "<i style='background:#FD8D3C'></i> -10–0<br>" +
+                "<i style='background:#FEB24C'></i> -20–-10<br>" +
+                "<i style='background:#FFEDA0'></i> ≤ -20";
+        }
+
+        function updateDifferenceLegend() {
+            var div = document.querySelector("#mapDiff .legend");
+            div.innerHTML =
+                "<strong>CHANGE (RIGHT − LEFT)</strong><br>" +
+                "<i style='background:#08306b'></i> Large Increase<br>" +
+                "<i style='background:#4292c6'></i> Small Increase<br>" +
+                "<i style='background:#ffffff;border:1px solid #999'></i> No Change<br>" +
+                "<i style='background:#fb6a4a'></i> Small Decrease<br>" +
+                "<i style='background:#a50f15'></i> Large Decrease";
+        }
+
+        /* ---------------- MAIN DRAW ---------------- */
+
+        function drawAllMaps() {
+
+            var field = document.getElementById('fieldSelect').value;
+
+            var yL = document.getElementById('yearLeft').value;
+            var mL = document.getElementById('monthLeft').value;
+
+            var yR = document.getElementById('yearRight').value;
+            var mR = document.getElementById('monthRight').value;
+
+            fetchData(yL, mL, function (leftData) {
+                fetchData(yR, mR, function (rightData) {
+
+                    var diffData = {};
+
+                    for (var province in leftData) {
+                        if (rightData[province]) {
+                            diffData[province] = {};
+                            diffData[province][field] =
+                                rightData[province][field] - leftData[province][field];
+                        }
+                    }
+
+                    layerLeft = drawMap(mapLeft, layerLeft, leftData, field, false);
+                    layerRight = drawMap(mapRight, layerRight, rightData, field, false);
+                    layerDiff = drawMap(mapDiff, layerDiff, diffData, field, true);
+
+                    updateNormalLegend("#mapLeft", field);
+                    updateNormalLegend("#mapRight", field);
+                    updateDifferenceLegend();
+                });
+            });
+        }
+
+        /* ---------------- INIT ---------------- */
+
+        fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}")
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                geoData = data;
+                drawAllMaps();
+            });
+
+        document.querySelectorAll("select").forEach(function (el) {
+            el.addEventListener("change", drawAllMaps);
+        });
+    </script>
+
+</body>
+
+</html>

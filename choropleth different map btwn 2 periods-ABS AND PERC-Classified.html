@@ -124,91 +124,96 @@
     <script>
         /* ================= MAP SETUP ================= */
 
-        const maps = {
+        var maps = {
             start: L.map('mapStart').setView([-4, 23.6], 5),
             end: L.map('mapEnd').setView([-4, 23.6], 5),
             diff: L.map('mapDiff').setView([-4, 23.6], 5),
             pct: L.map('mapPct').setView([-4, 23.6], 5)
         };
 
-        for (const k in maps) {
+        for (var k in maps) {
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(maps[k]);
         }
 
         /* ================= SYNC ZOOM ================= */
 
-        let syncing = false;
+        var syncing = false;
 
         function syncMaps(source) {
             if (syncing) return;
             syncing = true;
 
-            for (const k in maps) {
+            for (var k in maps) {
                 if (maps[k] !== source) {
-                    maps[k].setView(source.getCenter(), source.getZoom(), { animate: false });
+                    maps[k].setView(
+                        source.getCenter(),
+                        source.getZoom(),
+                        { animate: false }
+                    );
                 }
             }
-
             syncing = false;
         }
 
-        for (const k in maps) {
-            maps[k].on('moveend', (e) => syncMaps(e.target));
+        for (var k in maps) {
+            maps[k].on('moveend', function (e) {
+                syncMaps(e.target);
+            });
         }
 
         /* ================= LEGEND CONTROLS ================= */
 
-        let legendStart, legendEnd, legendDiff, legendPct;
+        var legendStart, legendEnd, legendDiff, legendPct;
 
+        /* ---- Create dynamic legend HTML for top maps ---- */
         function getNormalLegendHTML(field) {
-            let title = "Magnitude (Absolute Value)";
+
+            var title = "Magnitude (Absolute Value)";
+
             if (field === "fatalities") title = "Fatalities (Absolute)";
             if (field === "events") title = "Events (Absolute)";
-            if (field.includes("anomaly")) title = "Anomaly Magnitude (|value|)";
+            if (field.indexOf("anomaly") !== -1)
+                title = "Anomaly Magnitude (|value|)";
 
             return `
-    <strong>${title}</strong><br>
-    <i style="background:#800026"></i> > 50<br>
-    <i style="background:#BD0026"></i> 20 – 50<br>
-    <i style="background:#E31A1C"></i> 10 – 20<br>
-    <i style="background:#FC4E2A"></i> 5 – 10<br>
-    <i style="background:#FD8D3C"></i> 1 – 5<br>
-    <i style="background:#FFEDA0"></i> 0 – 1
+        <strong>${title}</strong><br>
+        <i style="background:#800026"></i> > 50<br>
+        <i style="background:#BD0026"></i> 20 – 50<br>
+        <i style="background:#E31A1C"></i> 10 – 20<br>
+        <i style="background:#FC4E2A"></i> 5 – 10<br>
+        <i style="background:#FD8D3C"></i> 1 – 5<br>
+        <i style="background:#FFEDA0"></i> 0 – 1
     `;
         }
 
-        // Numeric-value legend for difference maps
-        function getDifferenceLegendHTML(field, data) {
-            const values = Object.values(data).map(d => d[field]).filter(v => v != null);
-            if (!values.length) return "<strong>No data</strong>";
 
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            const step = (max - min) / 5;
-            const grades = [];
-            for (let i = 0; i < 5; i++) {
-                grades.push([min + step * i, min + step * (i + 1)]);
-            }
-
-            const colors = ['#a50f15', '#fb6a4a', '#ffffff', '#6baed6', '#08306b']; // red→white→blue
-            let html = `<strong>${field} Difference</strong><br>`;
-            for (let i = 0; i < grades.length; i++) {
-                const g = grades[i];
-                html += `<i style="background:${colors[i]}"></i> ${g[0].toFixed(1)} – ${g[1].toFixed(1)}<br>`;
-            }
-
-            return html;
+        /* ---- Difference legend (static) ---- */
+        function getDifferenceLegendHTML(title) {
+            return `
+        <strong>${title}</strong><br>
+        <i style="background:#08306b"></i> Large Increase<br>
+        <i style="background:#6baed6"></i> Small Increase<br>
+        <i style="background:#ffffff"></i> No Change<br>
+        <i style="background:#fb6a4a"></i> Small Decrease<br>
+        <i style="background:#a50f15"></i> Large Decrease
+    `;
         }
 
+        /* ---- Add / replace legend ---- */
         function setLegend(map, legendVar, html) {
-            if (legendVar) map.removeControl(legendVar);
 
-            const legend = L.control({ position: 'bottomright' });
-            legend.onAdd = () => {
-                const div = L.DomUtil.create('div', 'legend');
+            if (legendVar) {
+                map.removeControl(legendVar);
+            }
+
+            var legend = L.control({ position: 'bottomright' });
+
+            legend.onAdd = function () {
+                var div = L.DomUtil.create('div', 'legend');
                 div.innerHTML = html;
                 return div;
             };
+
             legend.addTo(map);
             return legend;
         }
@@ -216,8 +221,11 @@
         /* ================= COLORS ================= */
 
         function normalColor(value) {
+
             if (value == null) return '#ccc';
-            const v = Math.abs(value);
+
+            var v = Math.abs(value);   // ✅ ABSOLUTE VALUE
+
             if (v > 50) return '#800026';
             if (v > 20) return '#BD0026';
             if (v > 10) return '#E31A1C';
@@ -226,34 +234,50 @@
             return '#FFEDA0';
         }
 
-        // Difference coloring: positive=blue, negative=red, zero=white
+
         function diffColor(v) {
             if (v == null) return '#ccc';
-            return v > 0 ? '#6baed6' : v < 0 ? '#fb6a4a' : '#ffffff';
+            if (v > 50) return '#08306b';
+            if (v > 0) return '#6baed6';
+            if (v === 0) return '#ffffff';
+            if (v > -20) return '#fb6a4a';
+            return '#a50f15';
         }
 
         /* ================= DATA ================= */
 
-        let geoData;
-        let layers = {};
+        var geoData;
+        var layers = {};
 
-        async function fetchData(year, month) {
-            const response = await fetch(
-                `http://localhost:8000/api/political_violence/monthly_anomaly/?year=${year}&month=${month}`
-            );
-            const data = await response.json();
-            const out = {};
-            data.forEach(row => out[row.province] = row);
-            return out;
+        function fetchData(year, month, callback) {
+            fetch(
+                "http://localhost:8000/api/political_violence/monthly_anomaly/?year=" +
+                year + "&month=" + month
+            )
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+
+                    var out = {};
+                    data.forEach(function (row) {
+                        out[row.province] = row;
+                    });
+
+                    callback(out);
+                });
         }
 
         function drawLayer(map, oldLayer, data, field, colorFn) {
-            if (oldLayer) map.removeLayer(oldLayer);
+
+            if (oldLayer) {
+                map.removeLayer(oldLayer);
+            }
 
             return L.geoJSON(geoData, {
-                style: feature => {
-                    const rec = data[feature.properties.shapename2];
-                    const value = rec ? rec[field] : null;
+                style: function (feature) {
+
+                    var rec = data[feature.properties.shapename2];
+                    var value = rec ? rec[field] : null;
+
                     return {
                         fillColor: colorFn(value),
                         weight: 1,
@@ -266,50 +290,91 @@
 
         /* ================= UPDATE ALL ================= */
 
-        async function updateAll() {
-            const field = fieldSelect.value;
+        function updateAll() {
 
-            // Fetch data
-            const startData = await fetchData(yearStart.value, monthStart.value);
-            const endData = await fetchData(yearEnd.value, monthEnd.value);
+            var field = fieldSelect.value;
 
-            const diffData = {};
-            const pctData = {};
+            /* --- Update dynamic legends --- */
+            legendStart = setLegend(
+                maps.start,
+                legendStart,
+                getNormalLegendHTML(field)
+            );
 
-            for (const p in startData) {
-                if (endData[p]) {
-                    const s = startData[p][field];
-                    const e = endData[p][field];
+            legendEnd = setLegend(
+                maps.end,
+                legendEnd,
+                getNormalLegendHTML(field)
+            );
 
-                    diffData[p] = { [field]: e - s }; // raw difference
-                    pctData[p] = { [field]: s !== 0 ? ((e - s) / Math.abs(s)) * 100 : null };
-                }
-            }
+            legendDiff = setLegend(
+                maps.diff,
+                legendDiff,
+                getDifferenceLegendHTML("Absolute Difference")
+            );
 
-            // Update legends
-            legendStart = setLegend(maps.start, legendStart, getNormalLegendHTML(field));
-            legendEnd = setLegend(maps.end, legendEnd, getNormalLegendHTML(field));
-            legendDiff = setLegend(maps.diff, legendDiff, getDifferenceLegendHTML(field, diffData));
-            legendPct = setLegend(maps.pct, legendPct, getDifferenceLegendHTML(field, pctData));
+            legendPct = setLegend(
+                maps.pct,
+                legendPct,
+                getDifferenceLegendHTML("Percentage Difference")
+            );
 
-            // Draw layers
-            layers.start = drawLayer(maps.start, layers.start, startData, field, normalColor);
-            layers.end = drawLayer(maps.end, layers.end, endData, field, normalColor);
-            layers.diff = drawLayer(maps.diff, layers.diff, diffData, field, diffColor);
-            layers.pct = drawLayer(maps.pct, layers.pct, pctData, field, diffColor);
+            fetchData(yearStart.value, monthStart.value, function (startData) {
+
+                fetchData(yearEnd.value, monthEnd.value, function (endData) {
+
+                    var diffData = {};
+                    var pctData = {};
+
+                    for (var p in startData) {
+
+                        if (endData[p]) {
+
+                            var s = startData[p][field];
+                            var e = endData[p][field];
+
+                            diffData[p] = {};
+                            pctData[p] = {};
+
+                            diffData[p][field] = e - s;
+
+                            pctData[p][field] =
+                                (s !== 0) ? ((e - s) / Math.abs(s)) * 100 : null;
+                        }
+                    }
+
+                    layers.start = drawLayer(
+                        maps.start, layers.start, startData, field, normalColor
+                    );
+
+                    layers.end = drawLayer(
+                        maps.end, layers.end, endData, field, normalColor
+                    );
+
+                    layers.diff = drawLayer(
+                        maps.diff, layers.diff, diffData, field, diffColor
+                    );
+
+                    layers.pct = drawLayer(
+                        maps.pct, layers.pct, pctData, field, diffColor
+                    );
+                });
+            });
         }
 
         /* ================= INIT ================= */
 
-        (async function init() {
-            const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
-            geoData = await res.json();
-            updateAll();
-        })();
+        fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}")
+            .then(function (r) { return r.json(); })
+            .then(function (g) {
+                geoData = g;
+                updateAll();
+            });
 
-        document.querySelectorAll("select").forEach(el => el.addEventListener("change", updateAll));
+        document.querySelectorAll("select").forEach(function (el) {
+            el.addEventListener("change", updateAll);
+        });
     </script>
-
 
 
 </body>
