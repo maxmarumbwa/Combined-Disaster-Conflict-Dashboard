@@ -101,13 +101,6 @@
 
         <h3>Bottom 5 Provinces</h3>
         <ul id="bottomList"></ul>
-
-        <label>Top N Provinces</label><br>
-        <input type="number" id="topN" value="5" min="1" style="width:50px;"><br><br>
-
-        <label>Bottom N Provinces</label><br>
-        <input type="number" id="bottomN" value="5" min="1" style="width:50px;"><br><br>
-
     </div>
 
     <!-- RIGHT CONTROLS -->
@@ -244,9 +237,6 @@
 
         /* ---------------- RANKING PANEL ---------------- */
         function updateRankingPanel(field) {
-            var topN = parseInt(document.getElementById('topN').value) || 5;
-            var bottomN = parseInt(document.getElementById('bottomN').value) || 5;
-
             var records = [];
             for (var province in violenceData) {
                 var value = violenceData[province][field];
@@ -263,13 +253,13 @@
             topList.innerHTML = '';
             bottomList.innerHTML = '';
 
-            for (var i = 0; i < topN && i < records.length; i++) {
+            for (var i = 0; i < 5 && i < records.length; i++) {
                 var li = document.createElement('li');
                 li.textContent = records[i].province + ': ' + records[i].value;
                 topList.appendChild(li);
             }
 
-            for (var j = records.length - 1; j >= records.length - bottomN && j >= 0; j--) {
+            for (var j = records.length - 1; j >= records.length - 5 && j >= 0; j--) {
                 var li2 = document.createElement('li');
                 li2.textContent = records[j].province + ': ' + records[j].value;
                 bottomList.appendChild(li2);
@@ -290,6 +280,7 @@
             var div = document.querySelector(".legend");
             if (!div) return;
 
+            // Determine bins
             var bins = [
                 { color: '#800026', label: '> 50' },
                 { color: '#BD0026', label: '20 – 50' },
@@ -310,16 +301,6 @@
         document.getElementById('fieldSelect').addEventListener('change', loadData);
         document.getElementById('yearSelect').addEventListener('change', loadData);
         document.getElementById('monthSelect').addEventListener('change', loadData);
-
-        document.getElementById('topN').addEventListener('change', function () {
-            var field = document.getElementById('fieldSelect').value;
-            updateRankingPanel(field);
-        });
-
-        document.getElementById('bottomN').addEventListener('change', function () {
-            var field = document.getElementById('fieldSelect').value;
-            updateRankingPanel(field);
-        });
 
         /* ---------------- INIT ---------------- */
         loadGeoJSON().then(function () {
