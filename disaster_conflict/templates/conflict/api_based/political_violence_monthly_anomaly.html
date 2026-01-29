@@ -121,6 +121,12 @@
             <option value="12">December</option>
         </select><br><br>
     </div>
+    <label>Provinces</label><br>
+    <select id="provinceSelect" multiple size="8" style="width:180px;">
+    </select>
+    <br><br>
+
+    <button id="generateReportBtn">Generate Report</button>
 
     <div id="aggStats">
     </div>
@@ -146,6 +152,27 @@
         async function loadGeoJSON() {
             const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
             geoData = await res.json();
+        }
+        // populate province list from the loaded geojson
+        function populateProvinceList() {
+            const select = document.getElementById('provinceSelect');
+            select.innerHTML = '';
+
+            // 1️⃣ Extract province names
+            const provinces = geoData.features.map(
+                f => f.properties.shapename2
+            );
+
+            // 2️⃣ Sort alphabetically (A → Z)
+            provinces.sort((a, b) => a.localeCompare(b));
+
+            // 3️⃣ Populate dropdown
+            provinces.forEach(province => {
+                const opt = document.createElement('option');
+                opt.value = province;
+                opt.textContent = province;
+                select.appendChild(opt);
+            });
         }
 
         /* -------------------- LOAD API DATA -------------------- */
@@ -259,11 +286,26 @@
         document.getElementById('yearSelect').addEventListener('change', loadData);
         document.getElementById('monthSelect').addEventListener('change', loadData);
 
+        document.getElementById('provinceSelect').addEventListener('change', e => {
+            selectedProvinces.clear();
+
+            Array.from(e.target.selectedOptions).forEach(opt => {
+                selectedProvinces.add(opt.value);
+            });
+
+            drawMap();
+            updateAggStats();
+        });
+
+
+
         /* -------------------- INIT -------------------- */
         (async function init() {
             await loadGeoJSON();
+            populateProvinceList();  // add the population under init
             loadData();
         })();
+
     </script>
 
 
