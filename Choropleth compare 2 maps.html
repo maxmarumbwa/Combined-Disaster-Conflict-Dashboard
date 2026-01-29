@@ -113,39 +113,12 @@
     </div>
 
     <script>
-
         var geoData = null;
 
         // Create two maps
         var mapLeft = L.map('mapLeft').setView([-4.0, 23.6], 5);
         var mapRight = L.map('mapRight').setView([-4.0, 23.6], 5);
 
-        // Zoom map sync logic
-        var syncing = false;
-
-        function syncMaps(sourceMap, targetMap) {
-            if (syncing) {
-                return;
-            }
-
-            syncing = true;
-
-            targetMap.setView(
-                sourceMap.getCenter(),
-                sourceMap.getZoom(),
-                { animate: false }
-            );
-
-            syncing = false;
-        }
-
-        mapLeft.on('moveend', function () {
-            syncMaps(mapLeft, mapRight);
-        });
-
-        mapRight.on('moveend', function () {
-            syncMaps(mapRight, mapLeft);
-        });
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapLeft);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapRight);
 
