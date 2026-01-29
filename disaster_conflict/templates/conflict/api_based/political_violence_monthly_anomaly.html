@@ -112,6 +112,14 @@
 
         <em>Percentage Difference:</em><br>
         <code>((End − Start) / |Start|) × 100</code>
+        <hr>
+        <!-- Difference Legend Mode -->
+        <strong>Difference Legend Mode</strong><br>
+        <select id="diffModeSelect">
+            <option value="classified" selected>Classified</option>
+            <option value="raw">Raw Values</option>
+        </select>
+
     </div>
 
     <div id="container">
@@ -177,32 +185,39 @@
     `;
         }
 
-        // Numeric-value legend for difference maps
-        function getDifferenceLegendHTML(field, data) {
-            const values = Object.values(data).map(d => d[field]).filter(v => v != null);
-            if (!values.length) return "<strong>No data</strong>";
-
-            const min = Math.min(...values);
-            const max = Math.max(...values);
-            const step = (max - min) / 5;
-            const grades = [];
-            for (let i = 0; i < 5; i++) {
-                grades.push([min + step * i, min + step * (i + 1)]);
+        // Difference legend with two modes
+        function getDifferenceLegendHTML(field, data, mode) {
+            if (mode === "classified") {
+                return `
+        <strong>${field} Difference</strong><br>
+        <i style="background:#08306b"></i> Large Increase<br>
+        <i style="background:#6baed6"></i> Small Increase<br>
+        <i style="background:#ffffff"></i> No Change<br>
+        <i style="background:#fb6a4a"></i> Small Decrease<br>
+        <i style="background:#a50f15"></i> Large Decrease
+        `;
+            } else { // raw numeric mode
+                const values = Object.values(data).map(d => d[field]).filter(v => v != null);
+                if (!values.length) return "<strong>No data</strong>";
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const step = (max - min) / 5;
+                const grades = [];
+                for (let i = 0; i < 5; i++) {
+                    grades.push([min + step * i, min + step * (i + 1)]);
+                }
+                const colors = ['#a50f15', '#fb6a4a', '#ffffff', '#6baed6', '#08306b']; // red→white→blue
+                let html = `<strong>${field} Difference</strong><br>`;
+                for (let i = 0; i < grades.length; i++) {
+                    const g = grades[i];
+                    html += `<i style="background:${colors[i]}"></i> ${g[0].toFixed(1)} – ${g[1].toFixed(1)}<br>`;
+                }
+                return html;
             }
-
-            const colors = ['#a50f15', '#fb6a4a', '#ffffff', '#6baed6', '#08306b']; // red→white→blue
-            let html = `<strong>${field} Difference</strong><br>`;
-            for (let i = 0; i < grades.length; i++) {
-                const g = grades[i];
-                html += `<i style="background:${colors[i]}"></i> ${g[0].toFixed(1)} – ${g[1].toFixed(1)}<br>`;
-            }
-
-            return html;
         }
 
         function setLegend(map, legendVar, html) {
             if (legendVar) map.removeControl(legendVar);
-
             const legend = L.control({ position: 'bottomright' });
             legend.onAdd = () => {
                 const div = L.DomUtil.create('div', 'legend');
@@ -226,10 +241,18 @@
             return '#FFEDA0';
         }
 
-        // Difference coloring: positive=blue, negative=red, zero=white
-        function diffColor(v) {
+        // Difference color based on classified or raw mode
+        function diffColor(v, mode) {
             if (v == null) return '#ccc';
-            return v > 0 ? '#6baed6' : v < 0 ? '#fb6a4a' : '#ffffff';
+            if (mode === "classified") {
+                if (v > 50) return '#08306b';   // Large Increase
+                if (v > 0) return '#6baed6';    // Small Increase
+                if (v === 0) return '#ffffff';  // No Change
+                if (v > -20) return '#fb6a4a';  // Small Decrease
+                return '#a50f15';               // Large Decrease
+            } else { // raw numeric gradient
+                return v > 0 ? '#6baed6' : v < 0 ? '#fb6a4a' : '#ffffff';
+            }
         }
 
         /* ================= DATA ================= */
@@ -247,7 +270,7 @@
             return out;
         }
 
-        function drawLayer(map, oldLayer, data, field, colorFn) {
+        function drawLayer(map, oldLayer, data, field, mode) {
             if (oldLayer) map.removeLayer(oldLayer);
 
             return L.geoJSON(geoData, {
@@ -255,7 +278,7 @@
                     const rec = data[feature.properties.shapename2];
                     const value = rec ? rec[field] : null;
                     return {
-                        fillColor: colorFn(value),
+                        fillColor: diffColor(value, mode),
                         weight: 1,
                         color: 'white',
                         fillOpacity: 0.7
@@ -268,6 +291,7 @@
 
         async function updateAll() {
             const field = fieldSelect.value;
+            const diffMode = document.getElementById("diffModeSelect").value; // classified or raw
 
             // Fetch data
             const startData = await fetchData(yearStart.value, monthStart.value);
@@ -280,8 +304,7 @@
                 if (endData[p]) {
                     const s = startData[p][field];
                     const e = endData[p][field];
-
-                    diffData[p] = { [field]: e - s }; // raw difference
+                    diffData[p] = { [field]: e - s };
                     pctData[p] = { [field]: s !== 0 ? ((e - s) / Math.abs(s)) * 100 : null };
                 }
             }
@@ -289,14 +312,14 @@
             // Update legends
             legendStart = setLegend(maps.start, legendStart, getNormalLegendHTML(field));
             legendEnd = setLegend(maps.end, legendEnd, getNormalLegendHTML(field));
-            legendDiff = setLegend(maps.diff, legendDiff, getDifferenceLegendHTML(field, diffData));
-            legendPct = setLegend(maps.pct, legendPct, getDifferenceLegendHTML(field, pctData));
+            legendDiff = setLegend(maps.diff, legendDiff, getDifferenceLegendHTML(field, diffData, diffMode));
+            legendPct = setLegend(maps.pct, legendPct, getDifferenceLegendHTML(field, pctData, diffMode));
 
             // Draw layers
-            layers.start = drawLayer(maps.start, layers.start, startData, field, normalColor);
-            layers.end = drawLayer(maps.end, layers.end, endData, field, normalColor);
-            layers.diff = drawLayer(maps.diff, layers.diff, diffData, field, diffColor);
-            layers.pct = drawLayer(maps.pct, layers.pct, pctData, field, diffColor);
+            layers.start = drawLayer(maps.start, layers.start, startData, field, "classified");
+            layers.end = drawLayer(maps.end, layers.end, endData, field, "classified");
+            layers.diff = drawLayer(maps.diff, layers.diff, diffData, field, diffMode);
+            layers.pct = drawLayer(maps.pct, layers.pct, pctData, field, diffMode);
         }
 
         /* ================= INIT ================= */
@@ -309,8 +332,6 @@
 
         document.querySelectorAll("select").forEach(el => el.addEventListener("change", updateAll));
     </script>
-
-
 
 </body>
 
