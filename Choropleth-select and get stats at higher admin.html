@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+{% load static %}
+
+<head>
+    <title>Political Violence Choropleth</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- FileSaver.js for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+        #map {
+            height: 100vh;
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: Arial;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            z-index: 2000;
+        }
+
+        .legend {
+            background: white;
+            padding: 6px 8px;
+            font-size: 12px;
+            line-height: 18px;
+            color: #555;
+        }
+
+        .legend i {
+            width: 14px;
+            height: 14px;
+            float: left;
+            margin-right: 6px;
+            opacity: 0.9;
+        }
+
+        #exportButtons {
+            margin-top: 10px;
+        }
+
+        #exportButtons button {
+            margin-right: 5px;
+        }
+
+        #aggStats {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: Arial;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="controls">
+        <label>Field</label><br>
+        <select id="fieldSelect">
+            <option value="fatalities">Fatalities</option>
+            <option value="events">Events</option>
+            <option value="fatalities_monthly_mean">Fatalities Monthly Mean</option>
+            <option value="events_monthly_mean">Events Monthly Mean</option>
+            <option value="fatalities_anomaly" selected>Fatalities Anomaly</option>
+            <option value="events_anomaly">Events Anomaly</option>
+        </select><br><br>
+
+        <label>Year</label><br>
+        <select id="yearSelect">
+            <option value="2001" selected>2001</option>
+            <option value="2002">2002</option>
+            <option value="2003">2003</option>
+            <option value="2004">2004</option>
+            <option value="2005">2005</option>
+            <option value="2006">2006</option>
+            <option value="2007">2007</option>
+            <option value="2008">2008</option>
+            <option value="2009">2009</option>
+            <option value="2010">2010</option>
+            <option value="2011">2011</option>
+            <option value="2012">2012</option>
+        </select><br><br>
+
+        <label>Month</label><br>
+        <select id="monthSelect">
+            <option value="1" selected>January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+        </select><br><br>
+    </div>
+    <label>Admin Region</label><br>
+    <select id="regionSelect" multiple size="8" style="width:180px;">
+        <!-- Populated dynamically from geojson -->
+    </select>
+    <br><br>
+
+    <br><br>
+
+    <button id="generateReportBtn">Generate Report</button>
+
+    <div id="aggStats">
+    </div>
+
+
+    <div id="map"></div>
+
+    <script>
+        /* -------------------- MAP SETUP -------------------- */
+        const map = L.map('map').setView([-4.0, 23.6], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        let geoData;
+        let violenceData = {};
+        let layer;
+
+        // Selection store
+        const selectedProvinces = new Set();
+        const aggStatsDiv = document.getElementById('aggStats');
+
+        // Lookup: admin_region -> provinces
+        let provincesByRegion = {};
+        let allRegions = [];
+
+        /* -------------------- LOAD GEOJSON -------------------- */
+        async function loadGeoJSON() {
+            const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
+            geoData = await res.json();
+        }
+
+        /* -------------------- POPULATE REGION DROPDOWN -------------------- */
+        function populateRegionList() {
+            const select = document.getElementById('regionSelect');
+            select.innerHTML = '';
+            provincesByRegion = {};
+            allRegions = [];
+
+            // Group provinces by admin_region
+            geoData.features.forEach(f => {
+                const province = f.properties.shapename2;
+                const admin_region = f.properties.admin_region || 'Other';
+
+                if (!provincesByRegion[admin_region]) {
+                    provincesByRegion[admin_region] = [];
+                    allRegions.push(admin_region);
+                }
+                provincesByRegion[admin_region].push(province);
+            });
+
+            // Sort regions alphabetically
+            allRegions.sort();
+
+            allRegions.forEach(region => {
+                const opt = document.createElement('option');
+                opt.value = region;
+                opt.textContent = region;
+                select.appendChild(opt);
+            });
+        }
+
+        /* -------------------- LOAD API DATA -------------------- */
+        async function loadData() {
+            const year = document.getElementById('yearSelect').value;
+            const month = document.getElementById('monthSelect').value;
+
+            try {
+                const res = await fetch(
+                    `http://localhost:8000/api/political_violence/monthly_anomaly/?year=${year}&month=${month}`
+                );
+                const apiData = await res.json();
+
+                violenceData = {};
+                apiData.forEach(item => {
+                    violenceData[item.province] = item;
+                });
+
+                selectedProvinces.clear();
+                updateAggStats();
+                drawMap();
+
+            } catch (err) {
+                console.error('Error loading data', err);
+            }
+        }
+
+        /* -------------------- DRAW MAP -------------------- */
+        function drawMap() {
+            if (layer) map.removeLayer(layer);
+
+            layer = L.geoJSON(geoData, {
+                style: feature => {
+                    const province = feature.properties.shapename2;
+                    const selected = selectedProvinces.has(province);
+
+                    return {
+                        fillColor: 'grey',
+                        weight: selected ? 3 : 1,
+                        color: selected ? '#ff7800' : 'black',
+                        fillOpacity: 0.2
+                    };
+                },
+                onEachFeature: (feature, leafletLayer) => {
+                    const province = feature.properties.shapename2;
+                    const d = violenceData[province];
+
+                    // Popup
+                    if (d) {
+                        let popupContent = `<b>${province}</b><br>`;
+                        for (const key in d) {
+                            popupContent += `${key}: ${d[key]}<br>`;
+                        }
+                        leafletLayer.bindPopup(popupContent);
+                    } else {
+                        leafletLayer.bindPopup(`<b>${province}</b><br>No data`);
+                    }
+                }
+            }).addTo(map);
+
+            map.fitBounds(layer.getBounds());
+        }
+
+        /* -------------------- AGGREGATED STATS -------------------- */
+        function updateAggStats() {
+            const regionStats = {};
+
+            selectedProvinces.forEach(province => {
+                const d = violenceData[province];
+                if (!d) return;
+
+                const region = d.admin_region || 'Unknown';
+
+                if (!regionStats[region]) {
+                    regionStats[region] = { events: 0, fatalities: 0, provinces: 0 };
+                }
+
+                regionStats[region].events += Number(d.events || 0);
+                regionStats[region].fatalities += Number(d.fatalities || 0);
+                regionStats[region].provinces += 1;
+            });
+
+            if (selectedProvinces.size === 0) {
+                aggStatsDiv.innerHTML = `<i>No provinces selected</i>`;
+                return;
+            }
+
+            let html = `
+        <h4 style="margin:0 0 5px 0;">Aggregated Statistics (Admin Region)</h4>
+        <hr style="margin:4px 0">
+        <b>Selected Provinces:</b> ${selectedProvinces.size}<br><br>
+    `;
+
+            Object.keys(regionStats).sort().forEach(region => {
+                const r = regionStats[region];
+                html += `
+            <b>${region}</b><br>
+            Provinces: ${r.provinces}<br>
+            Events: ${r.events}<br>
+            Fatalities: ${r.fatalities}<br>
+            <hr style="margin:4px 0">
+        `;
+            });
+
+            aggStatsDiv.innerHTML = html;
+        }
+
+        /* -------------------- EVENTS -------------------- */
+        document.getElementById('yearSelect').addEventListener('change', loadData);
+        document.getElementById('monthSelect').addEventListener('change', loadData);
+
+        // Region selection → select all provinces in that region
+        document.getElementById('regionSelect').addEventListener('change', e => {
+            selectedProvinces.clear();
+
+            Array.from(e.target.selectedOptions).forEach(opt => {
+                const region = opt.value;
+                provincesByRegion[region].forEach(p => selectedProvinces.add(p));
+            });
+
+            drawMap();
+            updateAggStats();
+        });
+
+        /* -------------------- INIT -------------------- */
+        (async function init() {
+            await loadGeoJSON();
+            populateRegionList();
+            loadData();
+        })();
+    </script>
+
+
+</body>
+
+</html>

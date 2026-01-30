@@ -3,34 +3,48 @@
 {% load static %}
 
 <head>
-    <title>Political Violence – Province Chart</title>
+    <title>Political Violence Choropleth</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- FileSaver.js for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        #map {
+            height: 100vh;
         }
 
         #controls {
             position: absolute;
             top: 10px;
-            left: 10px;
+            right: 10px;
             z-index: 1000;
             background: white;
             padding: 10px;
             border-radius: 6px;
+            font-family: Arial;
         }
 
-        #chartContainer {
-            margin-top: 120px;
-            padding: 20px;
+        #aggStats {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            width: 450px;
         }
 
         canvas {
             width: 100% !important;
-            height: 400px !important;
+            height: 300px !important;
         }
     </style>
 </head>
@@ -81,13 +95,27 @@
         </select>
     </div>
 
-    <div id="chartContainer">
+    <div id="aggStats">
         <canvas id="provinceChart"></canvas>
     </div>
 
+    <div id="map"></div>
+
     <script>
+        /* -------------------- MAP SETUP -------------------- */
+        const map = L.map('map').setView([-4.0, 23.6], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        let geoData;
         let violenceData = {};
+        let layer;
         let provinceChart = null;
+
+        /* -------------------- LOAD GEOJSON -------------------- */
+        async function loadGeoJSON() {
+            const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
+            geoData = await res.json();
+        }
 
         /* -------------------- LOAD API DATA -------------------- */
         async function loadData() {
@@ -105,11 +133,42 @@
                     violenceData[item.province] = item;
                 });
 
+                drawMap();
                 drawChart();
 
             } catch (err) {
                 console.error('Error loading data', err);
             }
+        }
+
+        /* -------------------- DRAW MAP (UNCHANGED) -------------------- */
+        function drawMap() {
+            if (layer) map.removeLayer(layer);
+
+            layer = L.geoJSON(geoData, {
+                style: f => ({
+                    fillColor: 'grey',
+                    weight: 1,
+                    color: 'black',
+                    fillOpacity: 0.2
+                }),
+                onEachFeature: (f, l) => {
+                    const province = f.properties.shapename2;
+                    const d = violenceData[province];
+
+                    if (d) {
+                        let popupContent = `<b>${province}</b><br>`;
+                        for (const key in d) {
+                            popupContent += `${key}: ${d[key]}<br>`;
+                        }
+                        l.bindPopup(popupContent);
+                    } else {
+                        l.bindPopup(`<b>${province}</b><br>No data`);
+                    }
+                }
+            }).addTo(map);
+
+            map.fitBounds(layer.getBounds());
         }
 
         /* -------------------- DRAW CHART -------------------- */
@@ -144,12 +203,6 @@
                     scales: {
                         y: {
                             beginAtZero: true
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 60,
-                                minRotation: 45
-                            }
                         }
                     }
                 }
@@ -159,10 +212,16 @@
         /* -------------------- EVENTS -------------------- */
         document.getElementById('yearSelect').addEventListener('change', loadData);
         document.getElementById('monthSelect').addEventListener('change', loadData);
-        document.getElementById('fieldSelect').addEventListener('change', drawChart);
+        document.getElementById('fieldSelect').addEventListener('change', () => {
+            drawMap();
+            drawChart();
+        });
 
         /* -------------------- INIT -------------------- */
-        loadData();
+        (async function init() {
+            await loadGeoJSON();
+            loadData();
+        })();
     </script>
 
 </body>

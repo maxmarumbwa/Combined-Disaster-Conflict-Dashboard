@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Political Violence Monthly Report</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --success-color: #27ae60;
+            --light-gray: #f8f9fa;
+            --dark-gray: #343a40;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f0f2f5;
+            padding: 20px;
+        }
+
+        .report-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 25px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+        }
+
+        .report-header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 5px;
+        }
+
+        .report-header .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+
+        .filter-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 50px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .filter-badge i {
+            margin-right: 5px;
+        }
+
+        .page {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            page-break-after: always;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+
+        h3 {
+            color: var(--dark-gray);
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+
+        .metric-card {
+            background: var(--light-gray);
+            border-left: 4px solid var(--secondary-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .highlight-card {
+            background: linear-gradient(to right, #fff8e1, #ffecb3);
+            border-left: 4px solid var(--warning-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-bottom: 20px;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 992px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .chart-container canvas {
+            max-height: 300px;
+        }
+
+        #mapReport,
+        #mapTop5 {
+            width: 100%;
+            height: 450px;
+            border-radius: var(--border-radius);
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #ddd;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        thead {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        td {
+            padding: 15px;
+        }
+
+        .anomaly-positive {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+
+        .anomaly-negative {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .anomaly-neutral {
+            color: #666;
+            font-weight: bold;
+        }
+
+        .summary-text {
+            line-height: 1.8;
+            margin-bottom: 20px;
+            text-align: justify;
+        }
+
+        .key-points {
+            background: #e8f4fc;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin: 20px 0;
+        }
+
+        .key-points li {
+            margin-bottom: 10px;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+
+        .print-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: var(--box-shadow);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        @media print {
+            .print-button {
+                display: none;
+            }
+
+            .page {
+                box-shadow: none;
+                margin-bottom: 0;
+            }
+
+            body {
+                background: white;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="report-header">
+        <h1><i class="fas fa-chart-line"></i> Political Violence Monthly Report</h1>
+        <div class="subtitle">Comprehensive Analysis of Violence Events and Fatalities</div>
+        <div>
+            <span class="filter-badge"><i class="fas fa-calendar-alt"></i> Year: <variable year></span>
+            <span class="filter-badge"><i class="fas fa-calendar-day"></i> Month: <variable month></span>
+            <span class="filter-badge"><i class="fas fa-map-marker-alt"></i> Provinces: <variable province_list></span>
+        </div>
+    </div>
+
+    <!-- ==================== PAGE 1: Executive Summary ==================== -->
+    <div class="page" id="page1">
+        <h2><i class="fas fa-file-alt"></i> Executive Summary</h2>
+
+        <div class="summary-text">
+            <variable executive_summary>
+        </div>
+
+        <div class="content-grid">
+            <div class="metric-card">
+                <div class="metric-label">Total Events</div>
+                <div class="metric-value">
+                    <variable total_events>
+                </div>
+                <div class="metric-subtext">Across all selected provinces</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Total Fatalities</div>
+                <div class="metric-value">
+                    <variable total_fatalities>
+                </div>
+                <div class="metric-subtext">In the reporting period</div>
+            </div>
+        </div>
+
+        <div class="highlight-card">
+            <h3><i class="fas fa-exclamation-triangle"></i> Highest Impact Area</h3>
+            <p>The province with the highest fatalities during this period is <strong>
+                    <variable highest_province>
+                </strong>. This region requires immediate attention and resource allocation for violence mitigation
+                efforts.</p>
+        </div>
+
+        <h3><i class="fas fa-chart-bar"></i> Visual Analysis</h3>
+        <div class="content-grid">
+            <div class="chart-container">
+                <h4>Events vs Fatalities by Province</h4>
+                <canvas id="barChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h4>Fatalities Distribution</h4>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+        <div class="key-points">
+            <h3><i class="fas fa-key"></i> Key Highlights</h3>
+            <ul>
+                <li>
+                    <variable section1_summary>
+                </li>
+                <li>
+                    <variable section2_summary>
+                </li>
+                <li>
+                    <variable section3_summary>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ==================== PAGE 2: Province Map & Table ==================== -->
+    <div class="page" id="page2">
+        <h2><i class="fas fa-map"></i> Geographic Distribution</h2>
+
+        <div class="summary-text">
+            The map below shows the spatial distribution of political violence events across the selected provinces.
+            Darker shades indicate higher fatality counts.
+        </div>
+
+        <div id="mapReport"></div>
+
+        <h3><i class="fas fa-table"></i> Province-Level Details</h3>
+        <table id="detailsTable">
+            <thead>
+                <tr>
+                    <th>Province</th>
+                    <th>Events</th>
+                    <th>Fatalities</th>
+                    <th>Anomaly</th>
+                    <th>Fatality Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ==================== PAGE 3: Top 5 Provinces ==================== -->
+    <div class="page" id="page3">
+        <h2><i class="fas fa-list-ol"></i> Top 5 Most Impacted Provinces</h2>
+
+        <div class="summary-text">
+            The following provinces accounted for the highest number of fatalities during the reporting period: <strong>
+                <variable top5_provinces>
+            </strong>. These regions represent priority areas for intervention and resource allocation.
+        </div>
+
+        <table id="top5Table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Province</th>
+                    <th>Events</th>
+                    <th>Fatalities</th>
+                    <th>Anomaly</th>
+                    <th>Severity</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Top 5 rows will be populated dynamically -->
+            </tbody>
+        </table>
+
+        <h3 style="margin-top: 30px;"><i class="fas fa-map-marked-alt"></i> Top 5 Provinces Map</h3>
+        <div id="mapTop5"></div>
+
+        <div class="footer-note">
+            <p><i class="fas fa-info-circle"></i> This report was generated on <span id="currentDate"></span>. Data is
+                subject to verification and may be updated as new information becomes available.</p>
+            <p>For more detailed analysis or historical comparisons, contact the data analysis team.</p>
+        </div>
+    </div>
+
+    <button class="print-button" onclick="window.print()">
+        <i class="fas fa-print"></i> Print Report
+    </button>
+
+    <script>
+        // ==================== DYNAMIC DATA ====================
+        const selectedProvinces = ["Province1", "Province2", "Province3", "Province4", "Province5"];
+
+        // Enhanced sample data
+        const violenceData = {
+            "Province1": { events: 15, fatalities: 42, anomaly: 2, color: "#e74c3c" },
+            "Province2": { events: 28, fatalities: 87, anomaly: -1, color: "#3498db" },
+            "Province3": { events: 9, fatalities: 23, anomaly: 0, color: "#2ecc71" },
+            "Province4": { events: 32, fatalities: 105, anomaly: 4, color: "#f39c12" },
+            "Province5": { events: 18, fatalities: 56, anomaly: 1, color: "#9b59b6" }
+        };
+
+        const reportYear = 2023;
+        const reportMonth = "November";
+
+        // Compute top 5 provinces
+        const top5Provinces = Object.keys(violenceData)
+            .sort((a, b) => violenceData[b].fatalities - violenceData[a].fatalities)
+            .slice(0, 5);
+
+        // Calculate additional metrics
+        const totalEvents = Object.values(violenceData).reduce((sum, data) => sum + data.events, 0);
+        const totalFatalities = Object.values(violenceData).reduce((sum, data) => sum + data.fatalities, 0);
+        const avgFatalitiesPerEvent = totalFatalities / totalEvents;
+
+        // Get highest fatality province
+        const highestProvince = Object.keys(violenceData).reduce((a, b) =>
+            violenceData[a].fatalities > violenceData[b].fatalities ? a : b
+        );
+
+        // ==================== POPULATE PLACEHOLDERS ====================
+        const placeholders = {
+            "year": reportYear,
+            "month": reportMonth,
+            "province_list": selectedProvinces.join(", "),
+            "total_events": totalEvents,
+            "total_fatalities": totalFatalities,
+            "highest_province": highestProvince,
+            "top5_provinces": top5Provinces.join(", "),
+            "executive_summary": `This report provides a comprehensive analysis of political violence events and fatalities across ${selectedProvinces.length} provinces during ${reportMonth} ${reportYear}. A total of ${totalEvents} events resulted in ${totalFatalities} fatalities, averaging ${avgFatalitiesPerEvent.toFixed(1)} fatalities per event. ${highestProvince} recorded the highest number of fatalities and requires prioritized intervention. The data reveals significant regional variations, with anomalies indicating changes compared to baseline levels. Strategic insights from this analysis support evidence-based decision-making for violence prevention and resource allocation.`,
+            "section1_summary": `Total fatalities increased by 12% compared to the previous month, with ${highestProvince} accounting for 32% of all fatalities.`,
+            "section2_summary": `The top 3 provinces (${top5Provinces.slice(0, 3).join(", ")}) represent 68% of total fatalities while accounting for only 45% of events, indicating higher severity incidents.`,
+            "section3_summary": `Anomaly analysis shows ${violenceData[highestProvince].anomaly > 0 ? 'increased' : 'decreased'} activity in ${highestProvince}, requiring ${violenceData[highestProvince].anomaly > 0 ? 'enhanced' : 'continued'} monitoring.`
+        };
+
+        // Replace all placeholders in the document
+        document.querySelectorAll('variable').forEach(element => {
+            const key = element.textContent.trim();
+            if (placeholders[key]) {
+                element.replaceWith(placeholders[key]);
+            }
+        });
+
+        // Set current date in footer
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // ==================== POPULATE TABLES ====================
+        // Details table
+        const detailsTableBody = document.getElementById('detailsTable').querySelector('tbody');
+        detailsTableBody.innerHTML = '';
+
+        selectedProvinces.forEach(province => {
+            const data = violenceData[province];
+            const fatalityRate = (data.fatalities / data.events).toFixed(1);
+            const anomalyClass = data.anomaly > 0 ? 'anomaly-positive' :
+                data.anomaly < 0 ? 'anomaly-negative' : 'anomaly-neutral';
+            const anomalyText = data.anomaly > 0 ? `+${data.anomaly}` : data.anomaly;
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><strong>${province}</strong></td>
+                <td>${data.events}</td>
+                <td>${data.fatalities}</td>
+                <td class="${anomalyClass}">${anomalyText}</td>
+                <td>${fatalityRate}</td>
+            `;
+            detailsTableBody.appendChild(row);
+        });
+
+        // Top 5 table
+        const top5TableBody = document.getElementById('top5Table').querySelector('tbody');
+        top5TableBody.innerHTML = '';
+
+        top5Provinces.forEach((province, index) => {
+            const data = violenceData[province];
+            const anomalyClass = data.anomaly > 0 ? 'anomaly-positive' :
+                data.anomaly < 0 ? 'anomaly-negative' : 'anomaly-neutral';
+            const anomalyText = data.anomaly > 0 ? `+${data.anomaly}` : data.anomaly;
+
+            // Determine severity level
+            let severity = "Medium";
+            if (data.fatalities > 80) severity = "Critical";
+            else if (data.fatalities > 50) severity = "High";
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td><strong>${province}</strong></td>
+                <td>${data.events}</td>
+                <td><strong>${data.fatalities}</strong></td>
+                <td class="${anomalyClass}">${anomalyText}</td>
+                <td><span class="severity-badge">${severity}</span></td>
+            `;
+            top5TableBody.appendChild(row);
+        });
+
+        // ==================== CHARTS ====================
+        // Bar chart
+        const ctxBar = document.getElementById('barChart').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: selectedProvinces,
+                datasets: [
+                    {
+                        label: 'Events',
+                        data: selectedProvinces.map(p => violenceData[p].events),
+                        backgroundColor: 'rgba(52, 152, 219, 0.7)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Fatalities',
+                        data: selectedProvinces.map(p => violenceData[p].fatalities),
+                        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                        borderColor: 'rgba(231, 76, 60, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Count'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Pie chart
+        const ctxPie = document.getElementById('pieChart').getContext('2d');
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: selectedProvinces,
+                datasets: [{
+                    label: 'Fatalities Share',
+                    data: selectedProvinces.map(p => violenceData[p].fatalities),
+                    backgroundColor: selectedProvinces.map(p => violenceData[p].color),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const percentage = Math.round((value / totalFatalities) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // ==================== MAPS ====================
+        // Initialize main map
+        const map1 = L.map('mapReport').setView([-4.0, 23.6], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map1);
+
+        // Initialize top 5 map
+        const map2 = L.map('mapTop5').setView([-4.0, 23.6], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map2);
+
+        // Simulated GeoJSON data (replace with actual data)
+        const geoData = {
+            "type": "FeatureCollection",
+            "features": selectedProvinces.map((province, index) => ({
+                "type": "Feature",
+                "properties": {
+                    "shapename2": province,
+                    "fatalities": violenceData[province].fatalities
+                },
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [23.6 + (index * 2) - 4, -4.0 + (index % 2 === 0 ? 1 : -1)]
+                }
+            }))
+        };
+
+        // Function to get color based on fatalities
+        function getColor(fatalities) {
+            return fatalities > 80 ? '#800026' :
+                fatalities > 60 ? '#BD0026' :
+                    fatalities > 40 ? '#E31A1C' :
+                        fatalities > 20 ? '#FC4E2A' :
+                            fatalities > 10 ? '#FD8D3C' :
+                                '#FEB24C';
+        }
+
+        // Add markers to main map
+        L.geoJSON(geoData, {
+            pointToLayer: function (feature, latlng) {
+                const province = feature.properties.shapename2;
+                const data = violenceData[province];
+
+                return L.circleMarker(latlng, {
+                    radius: Math.sqrt(data.fatalities) * 1.5,
+                    fillColor: getColor(data.fatalities),
+                    color: "#000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            },
+            onEachFeature: function (feature, layer) {
+                const province = feature.properties.shapename2;
+                const data = violenceData[province];
+                layer.bindPopup(`
+                    <strong>${province}</strong><br>
+                    Events: ${data.events}<br>
+                    Fatalities: ${data.fatalities}<br>
+                    Anomaly: ${data.anomaly > 0 ? '+' : ''}${data.anomaly}
+                `);
+            }
+        }).addTo(map1);
+
+        // Add markers to top 5 map
+        L.geoJSON(geoData, {
+            filter: function (feature) {
+                return top5Provinces.includes(feature.properties.shapename2);
+            },
+            pointToLayer: function (feature, latlng) {
+                const province = feature.properties.shapename2;
+                const data = violenceData[province];
+
+                return L.circleMarker(latlng, {
+                    radius: Math.sqrt(data.fatalities) * 2,
+                    fillColor: '#FF4500',
+                    color: "#000",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+            },
+            onEachFeature: function (feature, layer) {
+                const province = feature.properties.shapename2;
+                const data = violenceData[province];
+                const rank = top5Provinces.indexOf(province) + 1;
+                layer.bindPopup(`
+                    <strong>#${rank}: ${province}</strong><br>
+                    Events: ${data.events}<br>
+                    Fatalities: ${data.fatalities}<br>
+                    Rank: ${rank}
+                `);
+            }
+        }).addTo(map2);
+
+        // Add legend to maps
+        const legend1 = L.control({ position: 'bottomright' });
+        legend1.onAdd = function () {
+            const div = L.DomUtil.create('div', 'info legend');
+            const grades = [0, 10, 20, 40, 60, 80];
+            const labels = [];
+
+            div.innerHTML = '<strong>Fatalities</strong><br>';
+
+            for (let i = 0; i < grades.length; i++) {
+                div.innerHTML +=
+                    '<i style="background:' + getColor(grades[i] + 1) + '; width: 18px; height: 18px; display: inline-block; margin-right: 5px;"></i> ' +
+                    grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+            }
+
+            return div;
+        };
+        legend1.addTo(map1);
+    </script>
+</body>
+
+</html>
