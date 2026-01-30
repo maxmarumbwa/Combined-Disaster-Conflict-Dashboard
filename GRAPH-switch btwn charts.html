@@ -29,8 +29,8 @@
         }
 
         canvas {
-            width: 100% !important;
-            height: 400px !important;
+            width: 60% !important;
+            height: 500px !important;
         }
     </style>
 </head>
@@ -66,6 +66,15 @@
             <option value="11">November</option>
             <option value="12">December</option>
         </select>
+
+        <!-- Chart type toggle -->
+        <div class="chart-toggle">
+            <label>Chart Type:</label><br>
+            <input type="radio" name="chartType" value="bar" checked> Bar
+            <input type="radio" name="chartType" value="line"> Line
+            <input type="radio" name="chartType" value="pie"> Pie
+        </div>
+
     </div>
 
     <div id="chartContainer">
@@ -73,6 +82,7 @@
     </div>
 
     <script>
+        let currentChartType = 'bar'; // default chart type
         let violenceData = {};
         let provinceChart = null;
 
@@ -134,7 +144,7 @@
             const ctx = document.getElementById('provinceChart').getContext('2d');
 
             provinceChart = new Chart(ctx, {
-                type: 'bar',
+                type: currentChartType,
                 data: {
                     labels: labels,
                     datasets: [{
@@ -143,16 +153,10 @@
                     }]
                 },
                 options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        },
-                        x: {
-                            ticks: {
-                                maxRotation: 60,
-                                minRotation: 45
-                            }
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${field.replaceAll('_', ' ').toUpperCase()} -Number of Political Violence events`,
                         }
                     }
                 }
@@ -163,6 +167,14 @@
         document.getElementById('yearSelect').addEventListener('change', loadData);
         document.getElementById('monthSelect').addEventListener('change', loadData);
         document.getElementById('fieldSelect').addEventListener('change', drawChart);
+        document.querySelectorAll('input[name="chartType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                currentChartType = e.target.value; // update chart type
+                drawChart(); // redraw chart
+            });
+        });
+
+
 
         /* -------------------- INIT -------------------- */
         populateYears();
