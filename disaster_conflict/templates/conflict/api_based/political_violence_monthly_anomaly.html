@@ -1,1300 +1,212 @@
 <!DOCTYPE html>
-<html>
-{% load static %}
+<html lang="en">
 
 <head>
-    <title>Political Violence Dashboard</title>
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Leaflet for Maps -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Political Violence Dashboard - Home</title>
     <style>
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: #f5f5f5;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-        }
-
-        /* New Header Section */
-        .dashboard-header {
-            max-width: 1800px;
-            margin: 20px auto 0 auto;
-            padding: 0 20px;
-        }
-
-        .header-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px 30px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .header-title {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 25px;
-        }
-
-        .header-title h1 {
-            margin: 0;
-            color: #2d3748;
-            font-size: 24px;
-        }
-
-        .current-period {
-            color: #007bff;
-            font-weight: 600;
-            font-size: 18px;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 20px;
-        }
-
-        .stat-card {
-            background: #f8f9fa;
-            border-radius: 8px;
             padding: 20px;
-            border-left: 4px solid #007bff;
         }
 
-        .stat-label {
-            display: block;
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 36px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .description {
+            color: #666;
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .nav-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-decoration: none;
+            color: #333;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .nav-card:hover {
+            background: white;
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-card h3 {
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+
+        .nav-card p {
             font-size: 14px;
             color: #666;
-            margin-bottom: 8px;
         }
 
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #2d3748;
-            margin-bottom: 5px;
-        }
-
-        .stat-subtext {
-            font-size: 12px;
-            color: #888;
-        }
-
-        .stat-card.alert {
-            border-left-color: #dc3545;
-            background: #fff5f5;
-        }
-
-        .stat-card.alert .stat-value {
-            color: #dc3545;
-        }
-
-        /* Original Dashboard Styles */
-        .dashboard {
-            max-width: 1800px;
-            margin: 0 auto;
-            display: flex;
-            gap: 20px;
-            padding: 0 20px 20px 20px;
-        }
-
-        .sidebar {
-            width: 300px;
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            height: fit-content;
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .content-container {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
-
-        .content-container.active {
-            display: block;
-        }
-
-        .control-group {
-            margin-bottom: 20px;
-        }
-
-        .control-group label {
-            display: block;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        select,
-        input[type="range"] {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-
-        .view-toggle {
-            display: flex;
-            background: #f8f9fa;
-            padding: 4px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .view-toggle-btn {
-            padding: 10px 20px;
-            border: none;
-            background: transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            color: #4a5568;
-            transition: all 0.3s;
-            flex: 1;
-            text-align: center;
-        }
-
-        .view-toggle-btn:hover {
-            background: #e2e8f0;
-        }
-
-        .view-toggle-btn.active {
-            background: #007bff;
-            color: white;
-        }
-
-        .dataset-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .dataset-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            background: #f8f9fa;
-            border-radius: 6px;
-        }
-
-        .chart-toggle {
-            display: flex;
-            gap: 10px;
-            background: #f8f9fa;
-            padding: 6px;
-            border-radius: 6px;
-        }
-
-        .chart-toggle input {
-            display: none;
-        }
-
-        .chart-toggle label {
-            flex: 1;
-            padding: 8px;
-            text-align: center;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .chart-toggle input:checked+label {
-            background: #007bff;
-            color: white;
-        }
-
-        /* Map specific styles */
-        #map {
-            width: 100%;
-            height: 500px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-        }
-
-        .map-controls {
-            display: flex;
-            gap: 15px;
+        .icon {
+            font-size: 32px;
             margin-bottom: 15px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            flex-wrap: wrap;
-        }
-
-        .map-control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .slider-value {
-            min-width: 40px;
-            text-align: center;
-            font-weight: 500;
-        }
-
-        /* Legend style */
-        .legend {
-            background: white;
-            padding: 10px;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            font-size: 12px;
-            line-height: 18px;
-            color: #555;
-        }
-
-        .legend i {
-            width: 16px;
-            height: 16px;
-            float: left;
-            margin-right: 8px;
-            opacity: 0.9;
-        }
-
-        .legend strong {
             display: block;
-            margin-bottom: 8px;
-            color: #2d3748;
-            font-size: 14px;
         }
 
-        /* Chart styles */
-        canvas {
-            width: 100% !important;
-            height: 450px !important;
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            border: none;
         }
 
-        /* Table styles */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
-        .data-table th,
-        .data-table td {
-            padding: 12px;
-            border: 1px solid #ddd;
+        .features {
+            margin-top: 40px;
             text-align: left;
         }
 
-        .data-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-        }
-
-        .data-table tr:hover {
-            background: #f5f5f5;
-        }
-
-        .table-actions {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .search-box,
-        .download-btn {
-            padding: 10px 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-        }
-
-        .search-box {
-            flex: 1;
-        }
-
-        .download-btn {
-            background: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .download-btn:hover {
-            background: #0056b3;
-        }
-
-        /* Loading and error styles */
-        .loading {
-            display: none;
+        .features h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
             text-align: center;
-            padding: 40px;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
             color: #666;
         }
 
-        .loading.active {
-            display: block;
-        }
-
-        .error-message {
-            display: none;
-            background: #fee;
-            color: #c00;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            border-left: 4px solid #c00;
-        }
-
-        .error-message.active {
-            display: block;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-            font-style: italic;
+        .feature-list li:before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
         }
     </style>
 </head>
 
 <body>
-    <!-- New Header Section -->
-    <div class="dashboard-header">
-        <div class="header-card">
-            <div class="header-title">
-                <h1>Political Violence Dashboard</h1>
-                <div class="current-period" id="currentPeriod">
-                    Showing data for January 2001
-                </div>
-            </div>
+    <div class="container">
+        <h1>📊 Political Violence Dashboard</h1>
+        <p class="description">
+            A comprehensive visualization tool for analyzing political violence data across different regions and time
+            periods.
+            This dashboard helps researchers and policymakers understand patterns and trends in political violence.
+        </p>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-label">Total Fatalities</span>
-                    <span class="stat-value" id="totalFatalities">0</span>
-                    <span class="stat-subtext">Threshold: 50</span>
-                </div>
+        <a href="dashboard.html" class="btn">🚀 Launch Full Dashboard</a>
 
-                <div class="stat-card">
-                    <span class="stat-label">Total Events</span>
-                    <span class="stat-value" id="totalEvents">0</span>
-                    <span class="stat-subtext">Threshold: 20</span>
-                </div>
+        <div class="nav-grid">
+            <a href="header.html" class="nav-card">
+                <span class="icon">📈</span>
+                <h3>Statistics Header</h3>
+                <p>View summary statistics and alerts</p>
+            </a>
 
-                <div class="stat-card">
-                    <span class="stat-label">Max Fatalities</span>
-                    <span class="stat-value" id="maxFatalities">0</span>
-                    <span class="stat-subtext">In a single province</span>
-                </div>
+            <a href="chart.html" class="nav-card">
+                <span class="icon">📊</span>
+                <h3>Chart View</h3>
+                <p>Interactive charts and graphs</p>
+            </a>
 
-                <div class="stat-card">
-                    <span class="stat-label">Provinces with Data</span>
-                    <span class="stat-value" id="provincesWithData">0</span>
-                    <span class="stat-subtext">Out of 26 total</span>
-                </div>
+            <a href="table.html" class="nav-card">
+                <span class="icon">📋</span>
+                <h3>Data Table</h3>
+                <p>Detailed data in table format</p>
+            </a>
+        </div>
 
-                <div class="stat-card alert" id="alertsCard">
-                    <span class="stat-label">Alerts</span>
-                    <span class="stat-value" id="alertsCount">0</span>
-                    <span class="stat-subtext">High-risk provinces</span>
-                </div>
-            </div>
+        <div class="nav-grid">
+            <a href="map.html" class="nav-card">
+                <span class="icon">🗺️</span>
+                <h3>Map View</h3>
+                <p>Geographic visualization</p>
+            </a>
+
+            <a href="controls.html" class="nav-card">
+                <span class="icon">🎛️</span>
+                <h3>Controls Panel</h3>
+                <p>Filters and settings</p>
+            </a>
+
+            <a href="data.html" class="nav-card">
+                <span class="icon">💾</span>
+                <h3>Data Management</h3>
+                <p>Load and export data</p>
+            </a>
+        </div>
+
+        <div class="features">
+            <h2>Features Overview</h2>
+            <ul class="feature-list">
+                <li>Real-time data visualization</li>
+                <li>Interactive geographic maps</li>
+                <li>Customizable charts and graphs</li>
+                <li>Searchable data tables</li>
+                <li>Export functionality (CSV)</li>
+                <li>Responsive design for all devices</li>
+                <li>Alert system for high-risk areas</li>
+                <li>Historical data comparison</li>
+            </ul>
+        </div>
+
+        <div style="margin-top: 30px; color: #999; font-size: 14px;">
+            <p>Start by exploring individual components or launch the full dashboard to see everything working together.
+            </p>
         </div>
     </div>
-
-    <!-- Original Dashboard Content -->
-    <div class="dashboard">
-        <div class="sidebar">
-            <div class="control-group">
-                <label>Year</label>
-                <select id="yearSelect">
-                    <option value="2001" selected>2001</option>
-                    <option value="2002">2002</option>
-                    <option value="2003">2003</option>
-                    <option value="2004">2004</option>
-                    <option value="2005">2005</option>
-                    <option value="2006">2006</option>
-                    <option value="2007">2007</option>
-                    <option value="2008">2008</option>
-                    <option value="2009">2009</option>
-                    <option value="2010">2010</option>
-                    <option value="2011">2011</option>
-                    <option value="2012">2012</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Month</label>
-                <select id="monthSelect">
-                    <option value="1" selected>January</option>
-                    <option value="2">February</option>
-                    <option value="3">March</option>
-                    <option value="4">April</option>
-                    <option value="5">May</option>
-                    <option value="6">June</option>
-                    <option value="7">July</option>
-                    <option value="8">August</option>
-                    <option value="9">September</option>
-                    <option value="10">October</option>
-                    <option value="11">November</option>
-                    <option value="12">December</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Data Fields (Chart View)</label>
-                <div class="dataset-grid">
-                    <div class="dataset-item">
-                        <input type="checkbox" id="showFatalities" checked>
-                        <label for="showFatalities">Fatalities</label>
-                    </div>
-                    <div class="dataset-item">
-                        <input type="checkbox" id="showEvents" checked>
-                        <label for="showEvents">Events</label>
-                    </div>
-                    <div class="dataset-item">
-                        <input type="checkbox" id="showFatalitiesMean">
-                        <label for="showFatalitiesMean">Fatalities Mean</label>
-                    </div>
-                    <div class="dataset-item">
-                        <input type="checkbox" id="showEventsMean">
-                        <label for="showEventsMean">Events Mean</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="control-group">
-                <label>Chart Type</label>
-                <div class="chart-toggle">
-                    <input type="radio" name="chartType" value="bar" id="barChart" checked>
-                    <label for="barChart">Bar Chart</label>
-                    <input type="radio" name="chartType" value="line" id="lineChart">
-                    <label for="lineChart">Line Chart</label>
-                </div>
-            </div>
-
-            <button onclick="loadData()"
-                style="width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; margin-top: 10px;">
-                Load Data
-            </button>
-        </div>
-
-        <div class="main-content">
-            <div class="view-toggle">
-                <button class="view-toggle-btn active" onclick="switchView('chart')">
-                    📊 Chart
-                </button>
-                <button class="view-toggle-btn" onclick="switchView('table')">
-                    📋 Table
-                </button>
-                <button class="view-toggle-btn" onclick="switchView('map')">
-                    🗺️ Map
-                </button>
-                <button class="view-toggle-btn" onclick="switchView('analysis')">📈 Analysis</button>
-            </div>
-
-            <div class="error-message" id="errorMessage">
-                <strong>Error:</strong> <span id="errorText"></span>
-            </div>
-
-            <div class="loading" id="loading">
-                <div>Loading data...</div>
-            </div>
-
-            <!-- Chart View -->
-            <div class="content-container active" id="chartContainer">
-                <canvas id="provinceChart"></canvas>
-            </div>
-
-            <!-- Table View -->
-            <div class="content-container" id="tableContainer">
-                <div class="table-actions">
-                    <input type="text" id="searchTable" class="search-box" placeholder="Search provinces...">
-                    <button class="download-btn" onclick="exportToCSV()">Export CSV</button>
-                </div>
-                <table class="data-table" id="dataTable">
-                    <thead>
-                        <tr>
-                            <th>Province</th>
-                            <th>Fatalities</th>
-                            <th>Events</th>
-                            <th>Fatalities Mean</th>
-                            <th>Events Mean</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <!-- Table data will be populated here -->
-                    </tbody>
-                </table>
-                <div class="no-data" id="noDataMessage">
-                    No data available. Click "Load Data" to fetch data.
-                </div>
-            </div>
-
-            <!-- Map View -->
-            <div class="content-container" id="mapContainer">
-                <div class="map-controls">
-                    <div class="map-control-group">
-                        <label for="mapFieldSelect">Map Field</label>
-                        <select id="mapFieldSelect">
-                            <option value="fatalities">Fatalities</option>
-                            <option value="events">Events</option>
-                            <option value="fatalities_monthly_mean">Fatalities Monthly Mean</option>
-                            <option value="events_monthly_mean">Events Monthly Mean</option>
-                            <option value="fatalities_anomaly" selected>Fatalities Anomaly</option>
-                            <option value="events_anomaly">Events Anomaly</option>
-                        </select>
-                    </div>
-
-                    <div class="map-control-group">
-                        <label>Filter by Value</label>
-                        <div class="slider-container">
-                            <input type="range" id="valueSlider" min="-100" max="100" step="1" value="-100">
-                            <span class="slider-value" id="sliderValue">-100</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="map"></div>
-            </div>
-            <!-- Analysis View -->
-            <div class="content-container" id="analysisContainer">
-
-                <h2 style="margin-bottom:15px;color:#2d3748;">
-                    Comparative Spatial Analysis
-                </h2>
-
-                <p style="color:#555;margin-bottom:15px;">
-                    Compare political violence patterns between two time periods or datasets
-                    to identify escalation, de-escalation, and emerging hotspots.
-                </p>
-
-                <div class="map-controls">
-                    <div class="map-control-group">
-                        <label>Start Period</label>
-                        <select id="analysisStartField">
-                            <option value="fatalities_monthly_mean">Fatalities Mean</option>
-                            <option value="events_monthly_mean">Events Mean</option>
-                        </select>
-                    </div>
-
-                    <div class="map-control-group">
-                        <label>End Period</label>
-                        <select id="analysisEndField">
-                            <option value="fatalities">Fatalities (Current)</option>
-                            <option value="events">Events (Current)</option>
-                        </select>
-                    </div>
-
-                    <div class="map-control-group">
-                        <label>Comparison Metric</label>
-                        <select id="analysisMetric">
-                            <option value="difference" selected>Difference</option>
-                            <option value="percent">Percentage Change</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-                    <div>
-                        <h4 style="text-align:center;">Start / Baseline</h4>
-                        <div id="analysisMapStart" style="height:450px;border-radius:8px;"></div>
-                    </div>
-
-                    <div>
-                        <h4 style="text-align:center;">End / Current</h4>
-                        <div id="analysisMapEnd" style="height:450px;border-radius:8px;"></div>
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-    </div>
-
-    <script>
-        // Global variables
-        let violenceData = {};
-        let provinceChart = null;
-        let map = null;
-        let geoData = null;
-        let layer = null;
-        let currentView = 'chart';
-
-        // Color bins for choropleth map
-        const anomalyBins = [
-            { color: '#800026', label: '> 50' },
-            { color: '#BD0026', label: '20 – 50' },
-            { color: '#E31A1C', label: '10 – 20' },
-            { color: '#FC4E2A', label: '0 – 10' },
-            { color: '#FD8D3C', label: '-10 – 0' },
-            { color: '#FEB24C', label: '-20 – -10' },
-            { color: '#FFEDA0', label: '≤ -20' }
-        ];
-        const meanBins = [
-            { color: '#800026', label: '> 50' },
-            { color: '#BD0026', label: '20 – 50' },
-            { color: '#E31A1C', label: '10 – 20' },
-            { color: '#FC4E2A', label: '0 – 10' }
-        ];
-        const absBins = [
-            { color: '#800026', label: '> 100' },
-            { color: '#BD0026', label: '50 – 100' },
-            { color: '#E31A1C', label: '20 – 50' },
-            { color: '#FC4E2A', label: '0 – 20' }
-        ];
-
-        /* -------------------- UPDATE HEADER STATS -------------------- */
-        function updateHeaderStats() {
-            const provinces = Object.keys(violenceData);
-            if (provinces.length === 0) return;
-
-            // Calculate totals
-            let totalFatalities = 0;
-            let totalEvents = 0;
-            let maxFatalities = 0;
-            let alertCount = 0;
-
-            provinces.forEach(province => {
-                const data = violenceData[province];
-                totalFatalities += data.fatalities || 0;
-                totalEvents += data.events || 0;
-                maxFatalities = Math.max(maxFatalities, data.fatalities || 0);
-
-                // Count alerts (provinces with fatalities > 50)
-                if (data.fatalities > 50) {
-                    alertCount++;
-                }
-            });
-
-            // Update header elements
-            document.getElementById('currentPeriod').textContent =
-                `Showing data for ${getMonthName(document.getElementById('monthSelect').value)} ${document.getElementById('yearSelect').value}`;
-
-            document.getElementById('totalFatalities').textContent = totalFatalities;
-            document.getElementById('totalEvents').textContent = totalEvents;
-            document.getElementById('maxFatalities').textContent = maxFatalities;
-            document.getElementById('provincesWithData').textContent = provinces.length;
-            document.getElementById('alertsCount').textContent = alertCount;
-
-            // Update alerts card styling
-            const alertsCard = document.getElementById('alertsCard');
-            if (alertCount > 0) {
-                alertsCard.classList.add('alert');
-            } else {
-                alertsCard.classList.remove('alert');
-            }
-        }
-
-        function getMonthName(monthNumber) {
-            const months = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
-            return months[parseInt(monthNumber) - 1];
-        }
-
-        /* -------------------- LOAD GEOJSON -------------------- */
-        async function loadGeoJSON() {
-            try {
-                const res = await fetch("{% static 'data/geojson/geoBoundaries-COD-ADM1_new.geojson' %}");
-                geoData = await res.json();
-                console.log('GeoJSON loaded successfully');
-            } catch (err) {
-                console.error('Error loading GeoJSON:', err);
-                geoData = {
-                    "type": "FeatureCollection",
-                    "features": []
-                };
-            }
-        }
-
-        /* -------------------- LOAD DATA -------------------- */
-        async function loadData() {
-            const year = document.getElementById('yearSelect').value;
-            const month = document.getElementById('monthSelect').value;
-
-            showLoading(true);
-            hideError();
-
-            try {
-                const res = await fetch(
-                    `http://localhost:8000/api/political_violence/monthly_anomaly/?year=${year}&month=${month}`
-                );
-
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-                }
-
-                const apiData = await res.json();
-
-                if (!Array.isArray(apiData) || apiData.length === 0) {
-                    throw new Error('No data available for selected period');
-                }
-
-                violenceData = {};
-                apiData.forEach(item => {
-                    violenceData[item.province] = item;
-                });
-
-                console.log(`Loaded ${Object.keys(violenceData).length} provinces`);
-
-                // Update all views
-                updateChart();
-                updateTable();
-                updateHeaderStats();
-                if (currentView === 'map') {
-                    updateMap();
-                }
-
-            } catch (err) {
-                console.error('Error loading data:', err);
-                showError(`Failed to load data: ${err.message}`);
-
-                // Use mock data for testing
-                useMockData();
-            } finally {
-                showLoading(false);
-            }
-        }
-
-        /* -------------------- MOCK DATA FOR TESTING -------------------- */
-        function useMockData() {
-            console.log('Using mock data for testing');
-            violenceData = {
-                "Province A": {
-                    fatalities: 15,
-                    events: 8,
-                    fatalities_monthly_mean: 12,
-                    events_monthly_mean: 6,
-                    fatalities_anomaly: 25,
-                    events_anomaly: 33
-                },
-                "Province B": {
-                    fatalities: 78,
-                    events: 25,
-                    fatalities_monthly_mean: 45,
-                    events_monthly_mean: 18,
-                    fatalities_anomaly: 73,
-                    events_anomaly: 39
-                },
-                "Province C": {
-                    fatalities: 32,
-                    events: 14,
-                    fatalities_monthly_mean: 25,
-                    events_monthly_mean: 10,
-                    fatalities_anomaly: 28,
-                    events_anomaly: 40
-                },
-                "Province D": {
-                    fatalities: 55,
-                    events: 22,
-                    fatalities_monthly_mean: 30,
-                    events_monthly_mean: 12,
-                    fatalities_anomaly: 83,
-                    events_anomaly: 83
-                },
-                "Province E": {
-                    fatalities: 8,
-                    events: 4,
-                    fatalities_monthly_mean: 10,
-                    events_monthly_mean: 5,
-                    fatalities_anomaly: -20,
-                    events_anomaly: -20
-                }
-            };
-
-            // Update all views with mock data
-            updateChart();
-            updateTable();
-            updateHeaderStats();
-            if (currentView === 'map') {
-                updateMap();
-            }
-        }
-
-        /* -------------------- CHART FUNCTIONS -------------------- */
-        function updateChart() {
-            const canvas = document.getElementById('provinceChart');
-            const ctx = canvas.getContext('2d');
-
-            // Destroy existing chart
-            if (provinceChart) {
-                provinceChart.destroy();
-            }
-
-            const provinces = Object.keys(violenceData);
-            if (provinces.length === 0) return;
-
-            const showFatalities = document.getElementById('showFatalities').checked;
-            const showEvents = document.getElementById('showEvents').checked;
-            const showFatalitiesMean = document.getElementById('showFatalitiesMean').checked;
-            const showEventsMean = document.getElementById('showEventsMean').checked;
-            const chartType = document.querySelector('input[name="chartType"]:checked').value;
-
-            const datasets = [];
-
-            if (showFatalities) {
-                datasets.push({
-                    label: 'Fatalities',
-                    data: provinces.map(p => violenceData[p].fatalities || 0),
-                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    borderWidth: 1
-                });
-            }
-
-            if (showEvents) {
-                datasets.push({
-                    label: 'Events',
-                    data: provinces.map(p => violenceData[p].events || 0),
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                });
-            }
-
-            if (showFatalitiesMean) {
-                datasets.push({
-                    label: 'Fatalities Mean',
-                    data: provinces.map(p => violenceData[p].fatalities_monthly_mean || 0),
-                    backgroundColor: 'rgba(255, 159, 64, 0.7)',
-                    borderColor: 'rgba(255, 159, 64, 1)',
-                    borderWidth: 1
-                });
-            }
-
-            if (showEventsMean) {
-                datasets.push({
-                    label: 'Events Mean',
-                    data: provinces.map(p => violenceData[p].events_monthly_mean || 0),
-                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                });
-            }
-
-            provinceChart = new Chart(ctx, {
-                type: chartType,
-                data: {
-                    labels: provinces,
-                    datasets: datasets
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: `Political Violence Data - ${getMonthName(document.getElementById('monthSelect').value)} ${document.getElementById('yearSelect').value}`
-                        },
-                        legend: {
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
-                            }
-                        },
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-
-        /* -------------------- TABLE FUNCTIONS -------------------- */
-        function updateTable() {
-            const tbody = document.getElementById('tableBody');
-            const noDataMessage = document.getElementById('noDataMessage');
-            const provinces = Object.keys(violenceData);
-
-            if (provinces.length === 0) {
-                tbody.innerHTML = '';
-                noDataMessage.style.display = 'block';
-                return;
-            }
-
-            noDataMessage.style.display = 'none';
-
-            let html = '';
-            provinces.forEach(province => {
-                const data = violenceData[province];
-                html += `
-                    <tr>
-                        <td>${province}</td>
-                        <td>${data.fatalities || 0}</td>
-                        <td>${data.events || 0}</td>
-                        <td>${(data.fatalities_monthly_mean || 0).toFixed(1)}</td>
-                        <td>${(data.events_monthly_mean || 0).toFixed(1)}</td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
-        }
-
-        /* -------------------- MAP FUNCTIONS -------------------- */
-        function initMap() {
-            if (!map) {
-                map = L.map('map').setView([-4.0, 23.6], 5);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-
-                // Add legend control
-                const legend = L.control({ position: "bottomright" });
-                legend.onAdd = function () {
-                    const div = L.DomUtil.create("div", "legend");
-                    return div;
-                };
-                legend.addTo(map);
-            }
-        }
-
-        function updateMap() {
-            if (!map) initMap();
-            if (!geoData || Object.keys(violenceData).length === 0) return;
-
-            if (layer) map.removeLayer(layer);
-
-            const field = document.getElementById('mapFieldSelect').value;
-            const sliderVal = parseFloat(document.getElementById('valueSlider').value);
-
-            const getColor = v => {
-                if (v == null) return '#ccc';
-
-                if (field.includes("anomaly")) {
-                    return v > 50 ? '#800026' :
-                        v > 20 ? '#BD0026' :
-                            v > 10 ? '#E31A1C' :
-                                v > 0 ? '#FC4E2A' :
-                                    v > -10 ? '#FD8D3C' :
-                                        v > -20 ? '#FEB24C' :
-                                            '#FFEDA0';
-                } else if (field.includes("mean")) {
-                    return v > 50 ? '#800026' :
-                        v > 20 ? '#BD0026' :
-                            v > 10 ? '#E31A1C' :
-                                '#FC4E2A';
-                } else {
-                    return v > 100 ? '#800026' :
-                        v > 50 ? '#BD0026' :
-                            v > 20 ? '#E31A1C' :
-                                '#FC4E2A';
-                }
-            };
-
-            layer = L.geoJSON(geoData, {
-                style: f => {
-                    const province = f.properties.shapename2;
-                    const d = violenceData[province];
-
-                    if (!d || d[field] < sliderVal) {
-                        return {
-                            fillColor: 'transparent',
-                            weight: 1,
-                            color: '#aaa',
-                            fillOpacity: 0
-                        };
-                    }
-
-                    return {
-                        fillColor: getColor(d[field]),
-                        weight: 1,
-                        color: 'white',
-                        fillOpacity: 0.7
-                    };
-                },
-                onEachFeature: (f, l) => {
-                    const province = f.properties.shapename2;
-                    const d = violenceData[province];
-
-                    if (d && d[field] >= sliderVal) {
-                        l.bindPopup(`
-                            <div style="min-width: 250px;">
-                                <h3 style="margin: 0 0 10px 0; color: #2d3748; border-bottom: 2px solid #007bff; padding-bottom: 5px;">
-                                    ${province}
-                                </h3>
-                                <p style="margin: 5px 0;">
-                                    <strong>${field.replace('_', ' ').toUpperCase()}:</strong> 
-                                    <span style="color: #007bff; font-weight: 600;">${d[field]}</span>
-                                </p>
-                                <p style="margin: 5px 0;">
-                                    <strong>Fatalities:</strong> 
-                                    <span style="color: #007bff; font-weight: 600;">${d.fatalities || 0}</span>
-                                </p>
-                                <p style="margin: 5px 0;">
-                                    <strong>Events:</strong> 
-                                    <span style="color: #007bff; font-weight: 600;">${d.events || 0}</span>
-                                </p>
-                                <p style="margin: 5px 0;">
-                                    <strong>Fatalities Mean:</strong> 
-                                    <span style="color: #007bff; font-weight: 600;">${d.fatalities_monthly_mean?.toFixed(1) || 0}</span>
-                                </p>
-                                <p style="margin: 5px 0;">
-                                    <strong>Events Mean:</strong> 
-                                    <span style="color: #007bff; font-weight: 600;">${d.events_monthly_mean?.toFixed(1) || 0}</span>
-                                </p>
-                            </div>
-                        `);
-                    } else {
-                        l.bindPopup(`
-                            <div style="min-width: 200px;">
-                                <h3 style="margin: 0 0 10px 0; color: #2d3748;">${province}</h3>
-                                <p style="margin: 5px 0; color: #666;">
-                                    ${d ? `Value (${d[field]}) below filter threshold (${sliderVal})` : 'No data available'}
-                                </p>
-                            </div>
-                        `);
-                    }
-                }
-            }).addTo(map);
-
-            if (layer.getBounds().isValid()) {
-                map.fitBounds(layer.getBounds());
-            }
-            updateLegend(field);
-        }
-
-        function updateLegend(field) {
-            const legendDiv = document.querySelector(".legend");
-            if (!legendDiv) return;
-
-            let title = field.includes("anomaly") ? "Anomaly" :
-                field.includes("mean") ? "Monthly Mean" :
-                    field.charAt(0).toUpperCase() + field.slice(1);
-
-            let bins = field.includes("anomaly") ? anomalyBins :
-                field.includes("mean") ? meanBins :
-                    absBins;
-
-            legendDiv.innerHTML = `<strong>${title}</strong><br>` +
-                bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
-        }
-
-        // compare maps
-        let analysisMapStart, analysisMapEnd;
-        let analysisLayerStart, analysisLayerEnd;
-
-        function initAnalysisMaps() {
-            if (!analysisMapStart) {
-                analysisMapStart = L.map('analysisMapStart').setView([-4.0, 23.6], 5);
-                analysisMapEnd = L.map('analysisMapEnd').setView([-4.0, 23.6], 5);
-
-                const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-                tiles.addTo(analysisMapStart);
-                tiles.addTo(analysisMapEnd);
-            }
-        }
-
-        function updateAnalysisMaps() {
-            if (!geoData || Object.keys(violenceData).length === 0) return;
-
-            if (analysisLayerStart) analysisMapStart.removeLayer(analysisLayerStart);
-            if (analysisLayerEnd) analysisMapEnd.removeLayer(analysisLayerEnd);
-
-            const startField = document.getElementById('analysisStartField').value;
-            const endField = document.getElementById('analysisEndField').value;
-            const metric = document.getElementById('analysisMetric').value;
-
-            const styleFn = field => feature => {
-                const province = feature.properties.shapename2;
-                const d = violenceData[province];
-                if (!d) return { fillOpacity: 0 };
-
-                let val = d[field];
-                let color =
-                    val > 50 ? '#800026' :
-                        val > 20 ? '#BD0026' :
-                            val > 10 ? '#E31A1C' :
-                                val > 0 ? '#FC4E2A' :
-                                    '#FFEDA0';
-
-                return {
-                    fillColor: color,
-                    weight: 1,
-                    color: '#fff',
-                    fillOpacity: 0.7
-                };
-            };
-
-            analysisLayerStart = L.geoJSON(geoData, { style: styleFn(startField) })
-                .addTo(analysisMapStart);
-
-            analysisLayerEnd = L.geoJSON(geoData, {
-                style: feature => {
-                    const province = feature.properties.shapename2;
-                    const d = violenceData[province];
-                    if (!d) return { fillOpacity: 0 };
-
-                    let val;
-                    if (metric === "difference") {
-                        val = (d[endField] || 0) - (d[startField] || 0);
-                    } else {
-                        val = d[startField]
-                            ? ((d[endField] - d[startField]) / d[startField]) * 100
-                            : 0;
-                    }
-
-                    let color =
-                        val > 50 ? '#084081' :
-                            val > 20 ? '#0868ac' :
-                                val > 0 ? '#2b8cbe' :
-                                    val > -20 ? '#fdae61' :
-                                        '#d73027';
-
-                    return {
-                        fillColor: color,
-                        weight: 1,
-                        color: '#fff',
-                        fillOpacity: 0.7
-                    };
-                }
-            }).addTo(analysisMapEnd);
-
-            analysisMapStart.fitBounds(analysisLayerStart.getBounds());
-            analysisMapEnd.fitBounds(analysisLayerEnd.getBounds());
-        }
-
-
-
-        /* -------------------- VIEW TOGGLE -------------------- */
-        function switchView(view) {
-            currentView = view;
-
-            document.querySelectorAll('.view-toggle-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
-            document.getElementById('chartContainer').classList.toggle('active', view === 'chart');
-            document.getElementById('tableContainer').classList.toggle('active', view === 'table');
-            document.getElementById('mapContainer').classList.toggle('active', view === 'map');
-            document.getElementById('analysisContainer').classList.toggle('active', view === 'analysis');
-
-            if (view === 'map') {
-                initMap();
-                updateMap();
-            }
-
-            if (view === 'analysis') {
-                initAnalysisMaps();
-                updateAnalysisMaps();
-            }
-        }
-
-
-        /* -------------------- UTILITY FUNCTIONS -------------------- */
-        function showLoading(show) {
-            document.getElementById('loading').classList.toggle('active', show);
-        }
-
-        function showError(message) {
-            document.getElementById('errorText').textContent = message;
-            document.getElementById('errorMessage').classList.add('active');
-        }
-
-        function hideError() {
-            document.getElementById('errorMessage').classList.remove('active');
-        }
-
-        function exportToCSV() {
-            const provinces = Object.keys(violenceData);
-            if (provinces.length === 0) return;
-
-            let csv = 'Province,Fatalities,Events,Fatalities Monthly Mean,Events Monthly Mean\n';
-
-            provinces.forEach(province => {
-                const data = violenceData[province];
-                csv += `"${province}",${data.fatalities},${data.events},${(data.fatalities_monthly_mean || 0).toFixed(2)},${(data.events_monthly_mean || 0).toFixed(2)}\n`;
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'political_violence_data.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }
-
-        /* -------------------- EVENT LISTENERS -------------------- */
-        document.getElementById('yearSelect').addEventListener('change', loadData);
-        document.getElementById('monthSelect').addEventListener('change', loadData);
-
-        // Chart controls
-        document.getElementById('showFatalities').addEventListener('change', updateChart);
-        document.getElementById('showEvents').addEventListener('change', updateChart);
-        document.getElementById('showFatalitiesMean').addEventListener('change', updateChart);
-        document.getElementById('showEventsMean').addEventListener('change', updateChart);
-        document.querySelectorAll('input[name="chartType"]').forEach(radio => {
-            radio.addEventListener('change', updateChart);
-        });
-
-        // Map controls
-        document.getElementById('mapFieldSelect').addEventListener('change', updateMap);
-        document.getElementById('valueSlider').addEventListener('input', function () {
-            document.getElementById('sliderValue').innerText = this.value;
-            updateMap();
-        });
-        document.getElementById('analysisStartField').addEventListener('change', updateAnalysisMaps);
-        document.getElementById('analysisEndField').addEventListener('change', updateAnalysisMaps);
-        document.getElementById('analysisMetric').addEventListener('change', updateAnalysisMaps);
-
-
-        // Table search
-        document.getElementById('searchTable').addEventListener('input', function () {
-            const search = this.value.toLowerCase();
-            const rows = document.querySelectorAll('#tableBody tr');
-
-            rows.forEach(row => {
-                const province = row.cells[0].textContent.toLowerCase();
-                row.style.display = province.includes(search) ? '' : 'none';
-            });
-        });
-
-        /* -------------------- INITIALIZATION -------------------- */
-        async function init() {
-            await loadGeoJSON();
-            // Load initial data
-            loadData();
-        }
-
-        // Initialize when page loads
-        window.addEventListener('load', init);
-    </script>
 </body>
 
 </html>
