@@ -517,9 +517,7 @@
                 <button class="view-toggle-btn" onclick="switchView('map')">
                     🗺️ Map
                 </button>
-                <button class="view-toggle-btn" onclick="switchView('analysis')">
-                    � Analysis
-                </button>
+                <button class="view-toggle-btn" onclick="switchView('analysis')">📈 Analysis</button>
             </div>
 
             <div class="error-message" id="errorMessage">
@@ -585,6 +583,58 @@
                 </div>
                 <div id="map"></div>
             </div>
+            <!-- Analysis View -->
+            <div class="content-container" id="analysisContainer">
+
+                <h2 style="margin-bottom:15px;color:#2d3748;">
+                    Comparative Spatial Analysis
+                </h2>
+
+                <p style="color:#555;margin-bottom:15px;">
+                    Compare political violence patterns between two time periods or datasets
+                    to identify escalation, de-escalation, and emerging hotspots.
+                </p>
+
+                <div class="map-controls">
+                    <div class="map-control-group">
+                        <label>Start Period</label>
+                        <select id="analysisStartField">
+                            <option value="fatalities_monthly_mean">Fatalities Mean</option>
+                            <option value="events_monthly_mean">Events Mean</option>
+                        </select>
+                    </div>
+
+                    <div class="map-control-group">
+                        <label>End Period</label>
+                        <select id="analysisEndField">
+                            <option value="fatalities">Fatalities (Current)</option>
+                            <option value="events">Events (Current)</option>
+                        </select>
+                    </div>
+
+                    <div class="map-control-group">
+                        <label>Comparison Metric</label>
+                        <select id="analysisMetric">
+                            <option value="difference" selected>Difference</option>
+                            <option value="percent">Percentage Change</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                    <div>
+                        <h4 style="text-align:center;">Start / Baseline</h4>
+                        <div id="analysisMapStart" style="height:450px;border-radius:8px;"></div>
+                    </div>
+
+                    <div>
+                        <h4 style="text-align:center;">End / Current</h4>
+                        <div id="analysisMapEnd" style="height:450px;border-radius:8px;"></div>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
     </div>
 
@@ -1052,29 +1102,117 @@
                 bins.map(b => `<i style="background:${b.color}"></i> ${b.label}<br>`).join('');
         }
 
+        // compare maps
+        let analysisMapStart, analysisMapEnd;
+        let analysisLayerStart, analysisLayerEnd;
+
+        function initAnalysisMaps() {
+            if (!analysisMapStart) {
+                analysisMapStart = L.map('analysisMapStart').setView([-4.0, 23.6], 5);
+                analysisMapEnd = L.map('analysisMapEnd').setView([-4.0, 23.6], 5);
+
+                const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+                tiles.addTo(analysisMapStart);
+                tiles.addTo(analysisMapEnd);
+            }
+        }
+
+        function updateAnalysisMaps() {
+            if (!geoData || Object.keys(violenceData).length === 0) return;
+
+            if (analysisLayerStart) analysisMapStart.removeLayer(analysisLayerStart);
+            if (analysisLayerEnd) analysisMapEnd.removeLayer(analysisLayerEnd);
+
+            const startField = document.getElementById('analysisStartField').value;
+            const endField = document.getElementById('analysisEndField').value;
+            const metric = document.getElementById('analysisMetric').value;
+
+            const styleFn = field => feature => {
+                const province = feature.properties.shapename2;
+                const d = violenceData[province];
+                if (!d) return { fillOpacity: 0 };
+
+                let val = d[field];
+                let color =
+                    val > 50 ? '#800026' :
+                        val > 20 ? '#BD0026' :
+                            val > 10 ? '#E31A1C' :
+                                val > 0 ? '#FC4E2A' :
+                                    '#FFEDA0';
+
+                return {
+                    fillColor: color,
+                    weight: 1,
+                    color: '#fff',
+                    fillOpacity: 0.7
+                };
+            };
+
+            analysisLayerStart = L.geoJSON(geoData, { style: styleFn(startField) })
+                .addTo(analysisMapStart);
+
+            analysisLayerEnd = L.geoJSON(geoData, {
+                style: feature => {
+                    const province = feature.properties.shapename2;
+                    const d = violenceData[province];
+                    if (!d) return { fillOpacity: 0 };
+
+                    let val;
+                    if (metric === "difference") {
+                        val = (d[endField] || 0) - (d[startField] || 0);
+                    } else {
+                        val = d[startField]
+                            ? ((d[endField] - d[startField]) / d[startField]) * 100
+                            : 0;
+                    }
+
+                    let color =
+                        val > 50 ? '#084081' :
+                            val > 20 ? '#0868ac' :
+                                val > 0 ? '#2b8cbe' :
+                                    val > -20 ? '#fdae61' :
+                                        '#d73027';
+
+                    return {
+                        fillColor: color,
+                        weight: 1,
+                        color: '#fff',
+                        fillOpacity: 0.7
+                    };
+                }
+            }).addTo(analysisMapEnd);
+
+            analysisMapStart.fitBounds(analysisLayerStart.getBounds());
+            analysisMapEnd.fitBounds(analysisLayerEnd.getBounds());
+        }
+
+
+
         /* -------------------- VIEW TOGGLE -------------------- */
         function switchView(view) {
             currentView = view;
 
-            // Update toggle buttons
             document.querySelectorAll('.view-toggle-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
 
-            // Show/hide containers
             document.getElementById('chartContainer').classList.toggle('active', view === 'chart');
             document.getElementById('tableContainer').classList.toggle('active', view === 'table');
             document.getElementById('mapContainer').classList.toggle('active', view === 'map');
+            document.getElementById('analysisContainer').classList.toggle('active', view === 'analysis');
 
-            // Initialize map if needed
             if (view === 'map') {
                 initMap();
-                if (Object.keys(violenceData).length > 0) {
-                    updateMap();
-                }
+                updateMap();
+            }
+
+            if (view === 'analysis') {
+                initAnalysisMaps();
+                updateAnalysisMaps();
             }
         }
+
 
         /* -------------------- UTILITY FUNCTIONS -------------------- */
         function showLoading(show) {
@@ -1131,6 +1269,10 @@
             document.getElementById('sliderValue').innerText = this.value;
             updateMap();
         });
+        document.getElementById('analysisStartField').addEventListener('change', updateAnalysisMaps);
+        document.getElementById('analysisEndField').addEventListener('change', updateAnalysisMaps);
+        document.getElementById('analysisMetric').addEventListener('change', updateAnalysisMaps);
+
 
         // Table search
         document.getElementById('searchTable').addEventListener('input', function () {
